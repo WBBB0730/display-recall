@@ -14,14 +14,10 @@ struct DisplayRecallApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        WindowGroup(AppWindow.profiles.title, id: AppWindow.profiles.id) {
-            ProfilesView()
+        WindowGroup(AppWindow.main.title, id: AppWindow.main.id) {
+            MainWindowView()
         }
-        .defaultSize(width: 760, height: 520)
-
-        Settings {
-            SettingsView()
-        }
+        .defaultSize(width: 920, height: 620)
     }
 }
 
@@ -66,6 +62,19 @@ enum DockIconController {
     static func apply(showDockIcon: Bool) {
         UserDefaults.standard.set(showDockIcon, forKey: DockIconPreference.userDefaultsKey)
         NSApp.setActivationPolicy(showDockIcon ? .regular : .accessory)
+    }
+}
+
+@MainActor
+final class MainWindowRouter: ObservableObject {
+    static let shared = MainWindowRouter()
+
+    @Published var selectedSection = MainWindowSection.default
+
+    private init() {}
+
+    func select(_ section: MainWindowSection) {
+        selectedSection = section
     }
 }
 
@@ -193,14 +202,12 @@ struct MenuBarContentView: View {
 
             Divider()
 
-            Button(AppMenuAction.openProfiles.title) {
-                openWindow(id: AppWindow.profiles.id)
-                NSApp.activate(ignoringOtherApps: true)
+            Button(AppMenuAction.openDisplayRecall.title) {
+                openMainWindow(section: .profiles)
             }
 
             Button(AppMenuAction.openSettings.title) {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                NSApp.activate(ignoringOtherApps: true)
+                openMainWindow(section: .settings)
             }
 
             Divider()
@@ -225,6 +232,12 @@ struct MenuBarContentView: View {
                 await scheduleAutomaticApply(trigger: .startup)
             }
         }
+    }
+
+    private func openMainWindow(section: MainWindowSection) {
+        MainWindowRouter.shared.select(section)
+        openWindow(id: AppWindow.main.id)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func profileButton(_ item: MenuBarProfileItem) -> some View {
@@ -392,6 +405,44 @@ struct MenuBarContentView: View {
             try ActivityLogRecorder(store: DisplayRecallStore.live()).record(entry)
         } catch {
             statusMessage = error.localizedDescription
+        }
+    }
+}
+
+struct MainWindowView: View {
+    @AppStorage(SetupPreference.completedUserDefaultsKey) private var setupCompleted = false
+    @ObservedObject private var router = MainWindowRouter.shared
+
+    var body: some View {
+        if setupCompleted {
+            NavigationSplitView {
+                List(selection: $router.selectedSection) {
+                    ForEach(MainWindowSection.allCases) { section in
+                        Label(section.title, systemImage: section.systemImage)
+                            .tag(section)
+                    }
+                }
+                .navigationTitle(AppConfiguration.displayName)
+            } detail: {
+                selectedContent
+                    .navigationTitle(router.selectedSection.title)
+            }
+        } else {
+            SetupView(setupCompleted: $setupCompleted)
+        }
+    }
+
+    @ViewBuilder
+    private var selectedContent: some View {
+        switch router.selectedSection {
+        case .profiles:
+            ProfilesContentView()
+        case .activityLog:
+            ActivityLogPageView()
+        case .settings:
+            SettingsView()
+        case .about:
+            AboutPageView()
         }
     }
 }
@@ -577,7 +628,7 @@ struct ProfilesContentView: View {
                     .tag(profile.id)
                 }
             }
-            .navigationTitle(AppWindow.profiles.title)
+            .navigationTitle(MainWindowSection.profiles.title)
             .toolbar {
                 Button {
                     Task {
@@ -978,6 +1029,102 @@ struct ProfileDetailView: View {
         }
         .formStyle(.grouped)
         .padding()
+    }
+}
+
+struct ActivityLogPageView: View {
+    @State private var activityLog = ActivityLogStoreDocument()
+    @State private var statusMessage = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Activity Log")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    Text("Recent automation, apply, import, and diagnostic events.")
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Refresh") {
+                    loadActivityLog()
+                }
+            }
+
+            if activityLog.entries.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.system(size: 36))
+                        .foregroundStyle(.secondary)
+                    Text("No recent activity")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(activityLog.entries.suffix(50).reversed()) { entry in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(ActivityLogRenderer.title(for: entry, language: .english))
+                            .fontWeight(.medium)
+                        Text(ActivityLogRenderer.details(for: entry))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                    }
+                }
+            }
+
+            if !statusMessage.isEmpty {
+                Text(statusMessage)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(24)
+        .task {
+            loadActivityLog()
+        }
+    }
+
+    private func loadActivityLog() {
+        do {
+            activityLog = try DisplayRecallStore.live().loadActivityLog()
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+}
+
+struct AboutPageView: View {
+    private let catalog = AcknowledgementsCatalog.current()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(AboutMetadata.current().displayString)
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Text(catalog.independenceNotice)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            Text("Acknowledgements")
+                .font(.headline)
+
+            ForEach(catalog.items) { item in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(item.name) \(item.version)")
+                        .fontWeight(.medium)
+                    Text("\(item.licenseName) - \(item.modificationStatus.title)")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(24)
     }
 }
 

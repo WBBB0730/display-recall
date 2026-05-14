@@ -15,24 +15,55 @@ public enum AppConfiguration {
 }
 
 public enum AppMenuAction: String, CaseIterable, Equatable {
-    case openProfiles
+    case openDisplayRecall
     case openSettings
     case quit
 
     public var title: String {
         switch self {
-        case .openProfiles:
-            "Open Profiles"
+        case .openDisplayRecall:
+            "Open Display Recall"
         case .openSettings:
             "Settings"
         case .quit:
             "Quit Display Recall"
         }
     }
+
+    public var targetSection: MainWindowSection? {
+        switch self {
+        case .openDisplayRecall:
+            .profiles
+        case .openSettings:
+            .settings
+        case .quit:
+            nil
+        }
+    }
 }
 
 public enum AppWindow: String, CaseIterable, Equatable {
+    case main
+
+    public var id: String {
+        rawValue
+    }
+
+    public var title: String {
+        switch self {
+        case .main:
+            AppConfiguration.displayName
+        }
+    }
+}
+
+public enum MainWindowSection: String, CaseIterable, Equatable, Identifiable, Sendable {
     case profiles
+    case activityLog
+    case settings
+    case about
+
+    public static let `default` = MainWindowSection.profiles
 
     public var id: String {
         rawValue
@@ -42,6 +73,25 @@ public enum AppWindow: String, CaseIterable, Equatable {
         switch self {
         case .profiles:
             "Profiles"
+        case .activityLog:
+            "Activity Log"
+        case .settings:
+            "Settings"
+        case .about:
+            "About"
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .profiles:
+            "display.2"
+        case .activityLog:
+            "list.bullet.rectangle"
+        case .settings:
+            "gearshape"
+        case .about:
+            "info.circle"
         }
     }
 }

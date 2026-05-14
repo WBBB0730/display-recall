@@ -14,16 +14,26 @@ final class AppConfigurationTests: XCTestCase {
         XCTAssertEqual(
             AppMenuAction.allCases.map(\.title),
             [
-                "Open Profiles",
+                "Open Display Recall",
                 "Settings",
                 "Quit Display Recall"
             ]
         )
     }
 
-    func testWindowIdentifiersExposeProfilesEntryPoint() {
-        XCTAssertEqual(AppWindow.profiles.id, "profiles")
-        XCTAssertEqual(AppWindow.profiles.title, "Profiles")
+    func testWindowIdentifiersExposeSingleMainWindowEntryPoint() {
+        XCTAssertEqual(AppWindow.main.id, "main")
+        XCTAssertEqual(AppWindow.main.title, "Display Recall")
+    }
+
+    func testMainWindowSectionsExposeRequiredDestinationsAndDefault() {
+        XCTAssertEqual(
+            MainWindowSection.allCases.map(\.title),
+            ["Profiles", "Activity Log", "Settings", "About"]
+        )
+        XCTAssertEqual(MainWindowSection.default, .profiles)
+        XCTAssertEqual(AppMenuAction.openDisplayRecall.targetSection, .profiles)
+        XCTAssertEqual(AppMenuAction.openSettings.targetSection, .settings)
     }
 
     func testDockIconPreferenceHasAHiddenDefaultAndSettingsKey() {
