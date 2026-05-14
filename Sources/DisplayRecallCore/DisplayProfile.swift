@@ -12,6 +12,7 @@ public struct DisplayProfile: Equatable, Identifiable, Sendable, Codable {
     public let id: UUID
     public var schemaVersion: Int
     public var name: String
+    public var notes: String
     public var command: String
     public var displaySetupFingerprint: DisplaySetupFingerprint
     public var displaySummary: String
@@ -25,6 +26,7 @@ public struct DisplayProfile: Equatable, Identifiable, Sendable, Codable {
         id: UUID = UUID(),
         schemaVersion: Int = 1,
         name: String,
+        notes: String = "",
         command: String,
         displaySetupFingerprint: DisplaySetupFingerprint,
         displaySummary: String = "",
@@ -37,6 +39,7 @@ public struct DisplayProfile: Equatable, Identifiable, Sendable, Codable {
         self.id = id
         self.schemaVersion = schemaVersion
         self.name = name
+        self.notes = notes
         self.command = command
         self.displaySetupFingerprint = displaySetupFingerprint
         self.displaySummary = displaySummary

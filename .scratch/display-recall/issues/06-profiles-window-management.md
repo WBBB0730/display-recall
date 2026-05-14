@@ -12,16 +12,16 @@ Build the Profiles window as the primary management surface. It should use a sid
 
 ## Acceptance criteria
 
-- [ ] Profiles appear in a sidebar with enough status to identify matching and automatic default profiles.
-- [ ] Selecting a profile shows details in a separate detail pane.
-- [ ] Users can save the current layout as a new profile.
-- [ ] Users can rename profiles and edit notes.
-- [ ] Users can view current display summary and profile display summary.
-- [ ] Users can apply a profile from the Profiles window.
-- [ ] Users can mark or unmark a profile as the automatic default for the current display setup.
-- [ ] Users can rebind a profile to the current display setup.
-- [ ] Advanced raw command editing exists and validates obvious broken commands before save.
-- [ ] Normal UI does not provide full display parameter editors.
+- [x] Profiles appear in a sidebar with enough status to identify matching and automatic default profiles.
+- [x] Selecting a profile shows details in a separate detail pane.
+- [x] Users can save the current layout as a new profile.
+- [x] Users can rename profiles and edit notes.
+- [x] Users can view current display summary and profile display summary.
+- [x] Users can apply a profile from the Profiles window.
+- [x] Users can mark or unmark a profile as the automatic default for the current display setup.
+- [x] Users can rebind a profile to the current display setup.
+- [x] Advanced raw command editing exists and validates obvious broken commands before save.
+- [x] Normal UI does not provide full display parameter editors.
 
 ## Blocked by
 

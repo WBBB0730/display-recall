@@ -231,28 +231,276 @@ struct SetupView: View {
 }
 
 struct ProfilesContentView: View {
+    @State private var document = ProfileStoreDocument()
+    @State private var selectedProfileID: UUID?
+    @State private var statusMessage = ""
+
     var body: some View {
         NavigationSplitView {
-            List {
-                Text("Profiles")
+            List(selection: $selectedProfileID) {
+                ForEach(document.profiles) { profile in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(profile.name)
+                            .fontWeight(.medium)
+                        Text(profile.displaySummary.isEmpty ? profile.displaySetupFingerprint.rawValue : profile.displaySummary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if isAutomaticDefault(profile) {
+                            Label("Automatic default", systemImage: "checkmark.circle")
+                                .font(.caption)
+                                .foregroundStyle(.green)
+                        }
+                    }
+                    .tag(profile.id)
+                }
             }
             .navigationTitle(AppWindow.profiles.title)
-        } detail: {
-            VStack(spacing: 12) {
-                Image(systemName: "display.2")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.secondary)
-
-                Text("No Profiles")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-
-                Text("Save your current display layout to create a profile.")
-                    .foregroundStyle(.secondary)
+            .toolbar {
+                Button {
+                    Task {
+                        await saveCurrentLayout()
+                    }
+                } label: {
+                    Label("Save Current Layout", systemImage: "plus")
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding()
+        } detail: {
+            if let selectedProfileBinding {
+                ProfileDetailView(
+                    profile: selectedProfileBinding,
+                    isAutomaticDefault: isAutomaticDefault(selectedProfileBinding.wrappedValue),
+                    statusMessage: statusMessage,
+                    onApply: { profile in
+                        Task {
+                            await apply(profile)
+                        }
+                    },
+                    onSetDefault: { profile in
+                        setAutomaticDefault(profile)
+                    },
+                    onClearDefault: { profile in
+                        clearAutomaticDefault(profile)
+                    },
+                    onRebind: { profile in
+                        Task {
+                            await rebind(profile)
+                        }
+                    },
+                    onSaveCommand: { profile, command in
+                        updateCommand(profile, command: command)
+                    }
+                )
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "display.2")
+                        .font(.system(size: 44))
+                        .foregroundStyle(.secondary)
+
+                    Text("No Profile Selected")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+
+                    Text("Save your current display layout or select a profile.")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding()
+            }
         }
+        .task {
+            loadProfiles()
+        }
+    }
+
+    private var selectedProfileBinding: Binding<DisplayProfile>? {
+        guard let selectedProfileID,
+              let index = document.profiles.firstIndex(where: { $0.id == selectedProfileID }) else {
+            return nil
+        }
+
+        return Binding(
+            get: { document.profiles[index] },
+            set: { newValue in
+                document.profiles[index] = newValue
+                saveDocument()
+            }
+        )
+    }
+
+    private func loadProfiles() {
+        do {
+            let store = try DisplayRecallStore.live()
+            document = try store.loadProfiles()
+            selectedProfileID = selectedProfileID ?? document.profiles.first?.id
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func saveDocument() {
+        do {
+            try DisplayRecallStore.live().save(document)
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func saveCurrentLayout() async {
+        do {
+            let service = try FirstRunSetupService.live()
+            guard case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
+                statusMessage = "Could not read current layout."
+                return
+            }
+            var manager = ProfileManager(document: document)
+            document = try manager.saveCurrentLayout(layout)
+            selectedProfileID = document.profiles.last?.id
+            saveDocument()
+            statusMessage = "Saved current layout."
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func apply(_ profile: DisplayProfile) async {
+        do {
+            let runner = try DisplayplacerBackend.bundledRunner()
+            let manager = ProfileManager(document: document)
+            let result = try await manager.apply(profile) { arguments in
+                try await runner.run(arguments: arguments)
+            }
+            statusMessage = result.exitCode == 0 ? "Applied \(profile.name)." : result.stderr
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func setAutomaticDefault(_ profile: DisplayProfile) {
+        do {
+            var manager = ProfileManager(document: document)
+            try manager.setAutomaticDefault(
+                profileID: profile.id,
+                for: profile.displaySetupFingerprint
+            )
+            document = manager.document
+            saveDocument()
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func clearAutomaticDefault(_ profile: DisplayProfile) {
+        var manager = ProfileManager(document: document)
+        manager.clearAutomaticDefault(for: profile.displaySetupFingerprint)
+        document = manager.document
+        saveDocument()
+    }
+
+    private func rebind(_ profile: DisplayProfile) async {
+        do {
+            let service = try FirstRunSetupService.live()
+            guard case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
+                statusMessage = "Could not read current display setup."
+                return
+            }
+            var manager = ProfileManager(document: document)
+            try manager.rebind(
+                profileID: profile.id,
+                to: layout.displaySetupFingerprint,
+                displaySummary: layout.displaySummary
+            )
+            document = manager.document
+            saveDocument()
+            statusMessage = "Rebound \(profile.name)."
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func updateCommand(_ profile: DisplayProfile, command: String) {
+        do {
+            var manager = ProfileManager(document: document)
+            try manager.updateCommand(profileID: profile.id, command: command)
+            document = manager.document
+            saveDocument()
+            statusMessage = "Command saved."
+        } catch {
+            statusMessage = "Invalid displayplacer command."
+        }
+    }
+
+    private func isAutomaticDefault(_ profile: DisplayProfile) -> Bool {
+        document.automaticDefaultRules.contains {
+            $0.profileId == profile.id && $0.displaySetupFingerprint == profile.displaySetupFingerprint
+        }
+    }
+}
+
+struct ProfileDetailView: View {
+    @Binding var profile: DisplayProfile
+    let isAutomaticDefault: Bool
+    let statusMessage: String
+    let onApply: (DisplayProfile) -> Void
+    let onSetDefault: (DisplayProfile) -> Void
+    let onClearDefault: (DisplayProfile) -> Void
+    let onRebind: (DisplayProfile) -> Void
+    let onSaveCommand: (DisplayProfile, String) -> Void
+
+    @State private var commandDraft = ""
+
+    var body: some View {
+        Form {
+            Section("Profile") {
+                TextField("Name", text: $profile.name)
+                TextField("Notes", text: $profile.notes, axis: .vertical)
+            }
+
+            Section("Display Setup") {
+                LabeledContent("Summary", value: profile.displaySummary)
+                LabeledContent("Fingerprint", value: profile.displaySetupFingerprint.rawValue)
+                Toggle("Automatic default for this setup", isOn: .constant(isAutomaticDefault))
+                    .disabled(true)
+                HStack {
+                    Button(isAutomaticDefault ? "Clear Default" : "Set Default") {
+                        isAutomaticDefault ? onClearDefault(profile) : onSetDefault(profile)
+                    }
+                    Button("Rebind to Current Displays") {
+                        onRebind(profile)
+                    }
+                }
+            }
+
+            Section("Advanced Command") {
+                TextEditor(text: $commandDraft)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(minHeight: 120)
+                    .onAppear {
+                        commandDraft = profile.command
+                    }
+                    .onChange(of: profile.id) { _ in
+                        commandDraft = profile.command
+                    }
+
+                HStack {
+                    Button("Save Command") {
+                        onSaveCommand(profile, commandDraft)
+                    }
+                    Button("Apply") {
+                        onApply(profile)
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+
+            if !statusMessage.isEmpty {
+                Section("Status") {
+                    Text(statusMessage)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
     }
 }
 
