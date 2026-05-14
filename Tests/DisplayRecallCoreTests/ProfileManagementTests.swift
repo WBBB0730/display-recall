@@ -64,12 +64,17 @@ final class ProfileManagementTests: XCTestCase {
         XCTAssertTrue(manager.document.automaticDefaultRules.isEmpty)
     }
 
-    func testApplyProfileRunsRawCommandThroughBackendRunner() async throws {
-        let profile = DisplayProfile.fixture()
+    func testApplyProfileRunsParsedDisplayplacerArgumentsThroughBackendRunner() async throws {
+        let profile = DisplayProfile.fixture(
+            command: #"displayplacer "id:AAA res:1920x1080 enabled:true origin:(0,0) degree:0" "id:BBB res:1280x720 enabled:true origin:(1920,0) degree:90""#
+        )
         let manager = ProfileManager(document: ProfileStoreDocument(profiles: [profile]))
 
         let result = try await manager.apply(profile) { arguments in
-            XCTAssertEqual(arguments, [profile.command])
+            XCTAssertEqual(arguments, [
+                "id:AAA res:1920x1080 enabled:true origin:(0,0) degree:0",
+                "id:BBB res:1280x720 enabled:true origin:(1920,0) degree:90"
+            ])
             return DisplayplacerBackendRunResult(
                 stdout: "ok",
                 stderr: "",
@@ -142,13 +147,14 @@ private extension DisplayProfile {
         id: UUID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
         name: String = "Home",
         notes: String = "",
+        command: String = #"displayplacer "id:AAA res:1920x1080 enabled:true origin:(0,0) degree:0""#,
         summary: String = "27 inch external screen"
     ) -> DisplayProfile {
         DisplayProfile(
             id: id,
             name: name,
             notes: notes,
-            command: #"displayplacer "id:AAA res:1920x1080 enabled:true origin:(0,0) degree:0""#,
+            command: command,
             displaySetupFingerprint: DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1"),
             displaySummary: summary
         )

@@ -135,10 +135,8 @@ public enum DisplayCommandParser {
             throw DisplayParsingError.missingDisplayplacerCommand
         }
 
-        let targets = command
-            .components(separatedBy: "\"")
-            .filter { $0.hasPrefix("id:") }
-            .map(parseTarget)
+        let arguments = try displayplacerArguments(from: command)
+        let targets = arguments.map(parseTarget)
 
         if targets.isEmpty {
             throw DisplayParsingError.missingDisplayplacerCommand
@@ -155,6 +153,22 @@ public enum DisplayCommandParser {
                 rawValue: "\(ids.joined(separator: "+"))|builtIn:false|count:\(ids.count)"
             )
         )
+    }
+
+    public static func displayplacerArguments(from command: String) throws -> [String] {
+        guard command.hasPrefix("displayplacer ") else {
+            throw DisplayParsingError.missingDisplayplacerCommand
+        }
+
+        let arguments = command
+            .components(separatedBy: "\"")
+            .filter { $0.hasPrefix("id:") }
+
+        guard !arguments.isEmpty else {
+            throw DisplayParsingError.missingDisplayplacerCommand
+        }
+
+        return arguments
     }
 
     private static func parseTarget(_ segment: String) -> ParsedDisplayTarget {

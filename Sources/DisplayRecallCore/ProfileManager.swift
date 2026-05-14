@@ -96,7 +96,7 @@ public struct ProfileManager: Sendable {
         _ profile: DisplayProfile,
         run: CommandRunner
     ) async throws -> DisplayplacerBackendRunResult {
-        try await run([profile.command])
+        try await run(DisplayCommandParser.displayplacerArguments(from: profile.command))
     }
 
     private func index(of profileID: UUID) throws -> Array<DisplayProfile>.Index {
