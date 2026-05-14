@@ -199,9 +199,34 @@ struct SetupView: View {
             editedName: profileName,
             makeAutomaticDefault: makeAutomaticDefault
         )
-        createdProfile = completion.profile
-        setupState = .completed(completion.profile)
-        setupCompleted = true
+
+        do {
+            let store = try DisplayRecallStore.live()
+            try store.save(
+                ProfileStoreDocument(
+                    profiles: [completion.profile],
+                    automaticDefaultRules: completion.automaticDefaultRule.map { [$0] } ?? []
+                )
+            )
+            try store.save(
+                SettingsStoreDocument(
+                    settings: AppSettings(setupCompleted: true, showDockIcon: false)
+                )
+            )
+            createdProfile = completion.profile
+            setupState = .completed(completion.profile)
+            setupCompleted = true
+        } catch {
+            setupState = .failed(
+                DisplayplacerBackendError(
+                    kind: .launchFailed,
+                    backendPath: "Application Support",
+                    backendVersion: DisplayplacerBackend.bundledMetadata.version,
+                    backendSource: .bundled,
+                    stderr: error.localizedDescription
+                )
+            )
+        }
     }
 }
 

@@ -3,6 +3,7 @@ import Foundation
 public enum AppConfiguration {
     public static let displayName = "Display Recall"
     public static let bundleIdentifier = "dev.wbbb.display-recall"
+    public static let version = "0.1.0"
     public static let minimumSupportedMacOS = OperatingSystemVersion(
         majorVersion: 13,
         minorVersion: 0,

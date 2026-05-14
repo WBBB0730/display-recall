@@ -12,6 +12,7 @@ public struct CurrentDisplayLayout: Equatable, Sendable {
     public let command: String
     public let generatedProfileName: String
     public let displaySetupFingerprint: DisplaySetupFingerprint
+    public let displaySummary: String
 }
 
 public struct FirstProfileCompletion: Equatable, Sendable {
@@ -64,7 +65,8 @@ public struct FirstRunSetupService: Sendable {
         let profile = DisplayProfile(
             name: trimmedName.isEmpty ? layout.generatedProfileName : trimmedName,
             command: layout.command,
-            displaySetupFingerprint: layout.displaySetupFingerprint
+            displaySetupFingerprint: layout.displaySetupFingerprint,
+            displaySummary: layout.displaySummary
         )
 
         let rule = makeAutomaticDefault
@@ -106,7 +108,8 @@ public enum CurrentDisplayLayoutParser {
             generatedProfileName: generatedName(from: types, fallbackCount: displayCount),
             displaySetupFingerprint: DisplaySetupFingerprint(
                 rawValue: "\(ids.sorted().joined(separator: "+"))|builtIn:\(hasBuiltInDisplay)|count:\(displayCount)"
-            )
+            ),
+            displaySummary: types.joined(separator: " + ")
         )
     }
 

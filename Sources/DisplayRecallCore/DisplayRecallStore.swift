@@ -1,0 +1,151 @@
+import Foundation
+
+public struct AppSettings: Equatable, Sendable, Codable {
+    public var setupCompleted: Bool
+    public var showDockIcon: Bool
+
+    public init(setupCompleted: Bool = false, showDockIcon: Bool = false) {
+        self.setupCompleted = setupCompleted
+        self.showDockIcon = showDockIcon
+    }
+}
+
+public struct ProfileStoreDocument: Equatable, Sendable, Codable {
+    public static let currentSchemaVersion = 1
+
+    public var schemaVersion: Int
+    public var profiles: [DisplayProfile]
+    public var automaticDefaultRules: [AutomaticDefaultRule]
+
+    public init(
+        schemaVersion: Int = currentSchemaVersion,
+        profiles: [DisplayProfile] = [],
+        automaticDefaultRules: [AutomaticDefaultRule] = []
+    ) {
+        self.schemaVersion = schemaVersion
+        self.profiles = profiles
+        self.automaticDefaultRules = automaticDefaultRules
+    }
+}
+
+public struct SettingsStoreDocument: Equatable, Sendable, Codable {
+    public static let currentSchemaVersion = 1
+
+    public var schemaVersion: Int
+    public var settings: AppSettings
+
+    public init(schemaVersion: Int = currentSchemaVersion, settings: AppSettings = AppSettings()) {
+        self.schemaVersion = schemaVersion
+        self.settings = settings
+    }
+}
+
+public enum DisplayRecallStoreError: Error, Equatable, Sendable {
+    case unsupportedFutureSchema(version: Int)
+}
+
+public struct DisplayRecallMigrations {
+    public static func migrateProfiles(_ document: ProfileStoreDocument) throws -> ProfileStoreDocument {
+        guard document.schemaVersion <= ProfileStoreDocument.currentSchemaVersion else {
+            throw DisplayRecallStoreError.unsupportedFutureSchema(version: document.schemaVersion)
+        }
+        return document
+    }
+
+    public static func migrateSettings(_ document: SettingsStoreDocument) throws -> SettingsStoreDocument {
+        guard document.schemaVersion <= SettingsStoreDocument.currentSchemaVersion else {
+            throw DisplayRecallStoreError.unsupportedFutureSchema(version: document.schemaVersion)
+        }
+        return document
+    }
+}
+
+public struct DisplayRecallStore: Sendable {
+    public let applicationSupportDirectory: URL
+    public let profilesURL: URL
+    public let settingsURL: URL
+
+    public init(applicationSupportDirectory: URL) {
+        self.applicationSupportDirectory = applicationSupportDirectory
+        self.profilesURL = applicationSupportDirectory.appendingPathComponent("profiles.json")
+        self.settingsURL = applicationSupportDirectory.appendingPathComponent("settings.json")
+    }
+
+    public static func live() throws -> DisplayRecallStore {
+        try DisplayRecallStore(applicationSupportDirectory: defaultApplicationSupportDirectory())
+    }
+
+    public static func defaultApplicationSupportDirectory(
+        fileManager: FileManager = .default
+    ) throws -> URL {
+        let base = try fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        return base.appendingPathComponent(AppConfiguration.displayName, isDirectory: true)
+    }
+
+    public func loadProfiles() throws -> ProfileStoreDocument {
+        guard FileManager.default.fileExists(atPath: profilesURL.path) else {
+            return ProfileStoreDocument()
+        }
+
+        let data = try Data(contentsOf: profilesURL)
+        try rejectFutureSchema(in: data, currentVersion: ProfileStoreDocument.currentSchemaVersion)
+        let document = try decoder.decode(ProfileStoreDocument.self, from: data)
+        return try DisplayRecallMigrations.migrateProfiles(document)
+    }
+
+    public func loadSettings() throws -> SettingsStoreDocument {
+        guard FileManager.default.fileExists(atPath: settingsURL.path) else {
+            return SettingsStoreDocument()
+        }
+
+        let data = try Data(contentsOf: settingsURL)
+        try rejectFutureSchema(in: data, currentVersion: SettingsStoreDocument.currentSchemaVersion)
+        let document = try decoder.decode(SettingsStoreDocument.self, from: data)
+        return try DisplayRecallMigrations.migrateSettings(document)
+    }
+
+    public func save(_ document: ProfileStoreDocument) throws {
+        try createDirectoryIfNeeded()
+        let data = try encoder.encode(document)
+        try data.write(to: profilesURL, options: .atomic)
+    }
+
+    public func save(_ document: SettingsStoreDocument) throws {
+        try createDirectoryIfNeeded()
+        let data = try encoder.encode(document)
+        try data.write(to: settingsURL, options: .atomic)
+    }
+
+    private func createDirectoryIfNeeded() throws {
+        try FileManager.default.createDirectory(
+            at: applicationSupportDirectory,
+            withIntermediateDirectories: true
+        )
+    }
+
+    private func rejectFutureSchema(in data: Data, currentVersion: Int) throws {
+        let envelope = try decoder.decode(SchemaEnvelope.self, from: data)
+        guard envelope.schemaVersion <= currentVersion else {
+            throw DisplayRecallStoreError.unsupportedFutureSchema(version: envelope.schemaVersion)
+        }
+    }
+
+    private var encoder: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
+    }
+
+    private var decoder: JSONDecoder {
+        JSONDecoder()
+    }
+}
+
+private struct SchemaEnvelope: Decodable {
+    let schemaVersion: Int
+}

@@ -8,32 +8,52 @@ public struct DisplaySetupFingerprint: Equatable, Hashable, Sendable, Codable {
     }
 }
 
-public struct DisplayProfile: Equatable, Identifiable, Sendable {
+public struct DisplayProfile: Equatable, Identifiable, Sendable, Codable {
     public let id: UUID
+    public var schemaVersion: Int
     public var name: String
     public var command: String
     public var displaySetupFingerprint: DisplaySetupFingerprint
+    public var displaySummary: String
+    public var backendVersion: String
+    public var createdByAppVersion: String
+    public var updatedByAppVersion: String
     public var createdAt: Date
     public var updatedAt: Date
 
     public init(
         id: UUID = UUID(),
+        schemaVersion: Int = 1,
         name: String,
         command: String,
         displaySetupFingerprint: DisplaySetupFingerprint,
+        displaySummary: String = "",
+        backendVersion: String = DisplayplacerBackend.bundledMetadata.version,
+        createdByAppVersion: String = AppConfiguration.version,
+        updatedByAppVersion: String = AppConfiguration.version,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
         self.id = id
+        self.schemaVersion = schemaVersion
         self.name = name
         self.command = command
         self.displaySetupFingerprint = displaySetupFingerprint
+        self.displaySummary = displaySummary
+        self.backendVersion = backendVersion
+        self.createdByAppVersion = createdByAppVersion
+        self.updatedByAppVersion = updatedByAppVersion
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
 }
 
-public struct AutomaticDefaultRule: Equatable, Sendable {
+public struct AutomaticDefaultRule: Equatable, Sendable, Codable {
     public let displaySetupFingerprint: DisplaySetupFingerprint
     public let profileId: UUID
+
+    public init(displaySetupFingerprint: DisplaySetupFingerprint, profileId: UUID) {
+        self.displaySetupFingerprint = displaySetupFingerprint
+        self.profileId = profileId
+    }
 }
