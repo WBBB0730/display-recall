@@ -9,11 +9,9 @@ struct DisplayRecallApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        WindowGroup(AppWindow.main.title, id: AppWindow.main.id) {
-            MainWindowView()
-                .environmentObject(LocalizationController.shared)
+        Settings {
+            EmptyView()
         }
-        .defaultSize(width: 920, height: 620)
     }
 }
 
@@ -273,6 +271,7 @@ final class MainWindowController {
                 defer: false
             )
             window.title = AppWindow.main.title
+            window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(
                 rootView: MainWindowView()
                     .environmentObject(LocalizationController.shared)
