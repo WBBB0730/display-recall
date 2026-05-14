@@ -117,6 +117,24 @@ public struct DisplayplacerBackendRunResult: Equatable, Sendable {
     public let backendArchitecture: DisplayplacerBackendArchitecture
     public let backendVersion: String
     public let backendSource: DisplayplacerBackendSource
+
+    public init(
+        stdout: String,
+        stderr: String,
+        exitCode: Int32,
+        backendPath: String,
+        backendArchitecture: DisplayplacerBackendArchitecture,
+        backendVersion: String,
+        backendSource: DisplayplacerBackendSource
+    ) {
+        self.stdout = stdout
+        self.stderr = stderr
+        self.exitCode = exitCode
+        self.backendPath = backendPath
+        self.backendArchitecture = backendArchitecture
+        self.backendVersion = backendVersion
+        self.backendSource = backendSource
+    }
 }
 
 public struct DisplayplacerBackendError: Error, Equatable, Sendable {
@@ -131,6 +149,24 @@ public struct DisplayplacerBackendError: Error, Equatable, Sendable {
     public let backendVersion: String
     public let backendSource: DisplayplacerBackendSource
     public let stderr: String
+
+    public init(
+        kind: Kind,
+        backendPath: String,
+        backendVersion: String,
+        backendSource: DisplayplacerBackendSource,
+        stderr: String
+    ) {
+        self.kind = kind
+        self.backendPath = backendPath
+        self.backendVersion = backendVersion
+        self.backendSource = backendSource
+        self.stderr = stderr
+    }
+
+    public var recoveryActionTitle: String {
+        "Retry"
+    }
 }
 
 public struct DisplayplacerBackendRunner: Sendable {

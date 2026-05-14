@@ -51,3 +51,7 @@ public enum DockIconPreference: String, Equatable, Sendable {
     public static let defaultValue = DockIconPreference.hidden
     public static let userDefaultsKey = "showDockIcon"
 }
+
+public enum SetupPreference {
+    public static let completedUserDefaultsKey = "setupCompleted"
+}

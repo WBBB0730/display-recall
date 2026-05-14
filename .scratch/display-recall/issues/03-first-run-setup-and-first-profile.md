@@ -12,14 +12,14 @@ Implement the first-run setup flow that verifies the bundled backend, reads the 
 
 ## Acceptance criteria
 
-- [ ] First launch opens setup instead of dropping the user into an empty app.
-- [ ] Setup verifies the backend by running `displayplacer list`.
-- [ ] Setup shows clear success/failure states and a retry path.
-- [ ] Setup can capture the current display layout as a profile using the authoritative raw `displayplacer` command.
-- [ ] The first profile gets an automatically generated name from the current display setup.
-- [ ] The generated name can be edited during setup.
-- [ ] A default-on option marks the first profile as the automatic default for the current display setup.
-- [ ] Completing setup transitions the app into normal menu bar behavior.
+- [x] First launch opens setup instead of dropping the user into an empty app.
+- [x] Setup verifies the backend by running `displayplacer list`.
+- [x] Setup shows clear success/failure states and a retry path.
+- [x] Setup can capture the current display layout as a profile using the authoritative raw `displayplacer` command.
+- [x] The first profile gets an automatically generated name from the current display setup.
+- [x] The generated name can be edited during setup.
+- [x] A default-on option marks the first profile as the automatic default for the current display setup.
+- [x] Completing setup transitions the app into normal menu bar behavior.
 
 ## Blocked by
 
