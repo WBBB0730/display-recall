@@ -377,6 +377,18 @@ public enum ProfileNameGenerator {
         let number = max(1, index)
         return language.resolved() == .simplifiedChinese ? "配置 \(number)" : "Profile \(number)"
     }
+
+    public static func firstAvailableDefaultName(
+        existingNames: [String],
+        language: LanguagePreference
+    ) -> String {
+        let existing = Set(existingNames)
+        var index = 1
+        while existing.contains(defaultName(index: index, language: language)) {
+            index += 1
+        }
+        return defaultName(index: index, language: language)
+    }
 }
 
 public struct ShortcutBinding: Equatable, Sendable, Codable {

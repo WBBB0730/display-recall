@@ -9,11 +9,6 @@ struct DisplayRecallApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra(AppConfiguration.displayName, systemImage: "display.2") {
-            MenuBarContentView()
-                .environmentObject(LocalizationController.shared)
-        }
-
         WindowGroup(AppWindow.main.title, id: AppWindow.main.id) {
             MainWindowView()
                 .environmentObject(LocalizationController.shared)
@@ -24,9 +19,11 @@ struct DisplayRecallApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var displayChangeObserver: NSObjectProtocol?
+    private var statusBarController: StatusBarController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DockIconController.applyCurrentPreference()
+        statusBarController = StatusBarController()
         displayChangeObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -45,6 +42,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let displayChangeObserver {
             NotificationCenter.default.removeObserver(displayChangeObserver)
         }
+        statusBarController?.invalidate()
+        statusBarController = nil
     }
 }
 
@@ -145,6 +144,10 @@ final class LocalizationController: ObservableObject {
 
     func defaultProfileName(index: Int) -> String {
         ProfileNameGenerator.defaultName(index: index, language: preference)
+    }
+
+    func defaultProfileName(existingNames: [String]) -> String {
+        ProfileNameGenerator.firstAvailableDefaultName(existingNames: existingNames, language: preference)
     }
 }
 
@@ -248,6 +251,497 @@ struct PendingApplyPanelView: View {
         }
         .padding(16)
         .frame(width: 340)
+    }
+}
+
+@MainActor
+final class MainWindowController {
+    static let shared = MainWindowController()
+
+    private var window: NSWindow?
+
+    private init() {}
+
+    func show(section: MainWindowSection) {
+        MainWindowRouter.shared.select(section)
+
+        if window == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 920, height: 620),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = AppWindow.main.title
+            window.contentView = NSHostingView(
+                rootView: MainWindowView()
+                    .environmentObject(LocalizationController.shared)
+            )
+            window.center()
+            self.window = window
+        }
+
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+@MainActor
+final class StatusBarController: NSObject {
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    private var document = ProfileStoreDocument()
+    private var currentFingerprint: DisplaySetupFingerprint?
+    private var automationStatus = AutomationStatus.enabled
+    private var automaticCoordinator = AutomaticApplyCoordinator(countdownSeconds: 5)
+    private var pendingApplyTask: Task<Void, Never>?
+    private var displayChangeObserver: NSObjectProtocol?
+    private var startupObserver: NSObjectProtocol?
+
+    override init() {
+        super.init()
+        configureStatusItem()
+        observeAutomaticApplyTriggers()
+        Task {
+            await refreshCurrentSetup()
+            loadProfiles()
+        }
+    }
+
+    func invalidate() {
+        if let displayChangeObserver {
+            NotificationCenter.default.removeObserver(displayChangeObserver)
+        }
+        if let startupObserver {
+            NotificationCenter.default.removeObserver(startupObserver)
+        }
+        displayChangeObserver = nil
+        startupObserver = nil
+        pendingApplyTask?.cancel()
+        NSStatusBar.system.removeStatusItem(statusItem)
+    }
+
+    private func configureStatusItem() {
+        guard let button = statusItem.button else {
+            return
+        }
+        button.image = NSImage(systemSymbolName: "display.2", accessibilityDescription: AppConfiguration.displayName)
+        button.target = self
+        button.action = #selector(handleStatusItemClick)
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+    }
+
+    private func observeAutomaticApplyTriggers() {
+        displayChangeObserver = NotificationCenter.default.addObserver(
+            forName: .displayRecallDisplaySetupChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                await self?.scheduleAutomaticApply(trigger: .displayChange)
+            }
+        }
+
+        startupObserver = NotificationCenter.default.addObserver(
+            forName: .displayRecallStartupStabilized,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                await self?.scheduleAutomaticApply(trigger: .startup)
+            }
+        }
+    }
+
+    @objc private func handleStatusItemClick() {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            Task {
+                await showMenu()
+            }
+        } else {
+            MainWindowController.shared.show(section: .profiles)
+        }
+    }
+
+    private func showMenu() async {
+        await refreshCurrentSetup()
+        loadProfiles()
+        let menu = buildMenu()
+        statusItem.menu = menu
+        statusItem.button?.performClick(nil)
+        statusItem.menu = nil
+    }
+
+    private func buildMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        let model = MenuBarModel.build(
+            document: document,
+            currentFingerprint: currentFingerprint,
+            automationStatus: automationStatus
+        )
+
+        for item in model.matchingProfiles + model.otherProfiles {
+            menu.addItem(profileMenuItem(item))
+        }
+
+        if !document.profiles.isEmpty {
+            menu.addItem(.separator())
+        }
+
+        menu.addItem(actionItem(
+            title: LocalizationController.shared.text(.saveCurrentLayout),
+            action: #selector(saveCurrentLayoutFromMenu)
+        ))
+
+        menu.addItem(.separator())
+        menu.addItem(actionItem(
+            title: LocalizationController.shared.text(.openDisplayRecall),
+            action: #selector(openProfilesFromMenu)
+        ))
+        menu.addItem(actionItem(
+            title: LocalizationController.shared.text(.settings),
+            action: #selector(openSettingsFromMenu)
+        ))
+
+        let automationItem = actionItem(
+            title: LocalizationController.shared.text(.automaticApply),
+            action: #selector(toggleAutomaticApplyFromMenu)
+        )
+        automationItem.state = automationStatus == .enabled ? .on : .off
+        menu.addItem(automationItem)
+
+        menu.addItem(actionItem(
+            title: LocalizationController.shared.text(.checkForUpdates),
+            action: #selector(checkForUpdatesFromMenu)
+        ))
+
+        menu.addItem(.separator())
+        menu.addItem(actionItem(
+            title: LocalizationController.shared.text(.quitDisplayRecall),
+            action: #selector(quitFromMenu)
+        ))
+
+        return menu
+    }
+
+    private func profileMenuItem(_ item: MenuBarProfileItem) -> NSMenuItem {
+        let menuItem = actionItem(title: truncatedMenuTitle(item.profile.name), action: #selector(applyProfileFromMenu(_:)))
+        menuItem.representedObject = item.profile.id.uuidString
+        menuItem.state = item.matchesCurrentDisplaySetup ? .on : .off
+        menuItem.toolTip = item.profile.name
+        return menuItem
+    }
+
+    private func actionItem(title: String, action: Selector) -> NSMenuItem {
+        let menuItem = NSMenuItem(title: truncatedMenuTitle(title), action: action, keyEquivalent: "")
+        menuItem.target = self
+        menuItem.isEnabled = true
+        menuItem.toolTip = title
+        return menuItem
+    }
+
+    private func truncatedMenuTitle(_ title: String, maxLength: Int = 28) -> String {
+        guard title.count > maxLength else {
+            return title
+        }
+        return "\(title.prefix(maxLength - 1))…"
+    }
+
+    @objc private func applyProfileFromMenu(_ sender: NSMenuItem) {
+        guard let idString = sender.representedObject as? String,
+              let id = UUID(uuidString: idString),
+              let profile = document.profiles.first(where: { $0.id == id }) else {
+            return
+        }
+
+        Task {
+            await apply(profile)
+        }
+    }
+
+    @objc private func saveCurrentLayoutFromMenu() {
+        Task {
+            await saveCurrentLayout()
+        }
+    }
+
+    @objc private func openProfilesFromMenu() {
+        MainWindowController.shared.show(section: .profiles)
+    }
+
+    @objc private func openSettingsFromMenu() {
+        MainWindowController.shared.show(section: .settings)
+    }
+
+    @objc private func toggleAutomaticApplyFromMenu() {
+        automationStatus = automationStatus == .enabled ? .paused : .enabled
+    }
+
+    @objc private func checkForUpdatesFromMenu() {
+        NSWorkspace.shared.open(ReleaseConfiguration.production().sparklePolicy.feedURL)
+    }
+
+    @objc private func quitFromMenu() {
+        NSApp.terminate(nil)
+    }
+
+    private func loadProfiles() {
+        do {
+            document = try DisplayRecallStore.live().loadProfiles()
+        } catch {
+            recordActivity(ActivityLogEntry(
+                type: .backendVerification,
+                metadata: ["error": error.localizedDescription]
+            ))
+        }
+    }
+
+    private func refreshCurrentSetup() async {
+        do {
+            let service = try FirstRunSetupService.live()
+            if case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() {
+                currentFingerprint = layout.displaySetupFingerprint
+            }
+        } catch {
+            recordActivity(ActivityLogEntry(
+                type: .backendVerification,
+                metadata: ["error": error.localizedDescription]
+            ))
+        }
+    }
+
+    private func saveCurrentLayout() async {
+        do {
+            let service = try FirstRunSetupService.live()
+            guard case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
+                return
+            }
+            var manager = ProfileManager(document: document)
+            document = try manager.saveCurrentLayout(
+                layout,
+                name: LocalizationController.shared.defaultProfileName(
+                    existingNames: document.profiles.map(\.name)
+                )
+            )
+            try DisplayRecallStore.live().save(document)
+            currentFingerprint = layout.displaySetupFingerprint
+        } catch {
+            recordActivity(ActivityLogEntry(
+                type: .backendVerification,
+                metadata: ["error": error.localizedDescription]
+            ))
+        }
+    }
+
+    private func apply(_ profile: DisplayProfile) async {
+        automaticCoordinator.cancelForManualApply()
+        do {
+            let runner = try DisplayplacerBackend.bundledRunner()
+            let manager = ProfileManager(document: document)
+            let result = try await manager.apply(profile) { arguments in
+                try await runner.run(arguments: arguments)
+            }
+            recordActivity(
+                type: result.exitCode == 0 ? .profileApplied : .profileApplyFailed,
+                trigger: .manual,
+                profile: profile,
+                result: result
+            )
+            await refreshCurrentSetup()
+            loadProfiles()
+        } catch {
+            recordActivity(ActivityLogEntry(
+                type: .profileApplyFailed,
+                trigger: .manual,
+                profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                stderr: error.localizedDescription
+            ))
+        }
+    }
+
+    private func scheduleAutomaticApply(trigger: AutomaticApplyTrigger) async {
+        pendingApplyTask?.cancel()
+        PendingApplyPanelController.shared.close()
+        await refreshCurrentSetup()
+        loadProfiles()
+        guard let currentFingerprint else { return }
+
+        let state: AutomaticApplyState
+        switch trigger {
+        case .displayChange:
+            state = automaticCoordinator.handleDisplayChange(
+                document: document,
+                currentFingerprint: currentFingerprint,
+                automationStatus: automationStatus
+            )
+        case .startup:
+            state = automaticCoordinator.handleStartup(
+                document: document,
+                currentFingerprint: currentFingerprint,
+                automationStatus: automationStatus
+            )
+        }
+        recordAutomaticDecision(state: state, trigger: trigger)
+        presentPendingPanelIfNeeded(state)
+    }
+
+    private func presentPendingPanelIfNeeded(_ state: AutomaticApplyState) {
+        guard case let .pending(profile, remainingSeconds, trigger) = state else {
+            PendingApplyPanelController.shared.close()
+            return
+        }
+
+        pendingApplyTask?.cancel()
+        showPendingPanel(profile: profile, remainingSeconds: remainingSeconds, trigger: trigger)
+
+        pendingApplyTask = Task {
+            var remaining = remainingSeconds
+            while remaining > 0 && !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                remaining -= 1
+                await MainActor.run {
+                    if remaining > 0 {
+                        showPendingPanel(profile: profile, remainingSeconds: remaining, trigger: trigger)
+                    }
+                }
+            }
+
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                PendingApplyPanelController.shared.close()
+            }
+
+            do {
+                let freshFingerprint = try await rereadCurrentFingerprint(
+                    fallback: profile.displaySetupFingerprint
+                )
+                let selected = await MainActor.run {
+                    automaticCoordinator.state = .idle
+                    return automaticDefaultProfile(for: freshFingerprint)
+                }
+                if let selected {
+                    await apply(selected)
+                }
+            } catch {
+                recordActivity(ActivityLogEntry(
+                    type: .profileApplyFailed,
+                    trigger: trigger == .startup ? .startup : .automatic,
+                    profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                    stderr: error.localizedDescription
+                ))
+            }
+        }
+    }
+
+    private func showPendingPanel(
+        profile: DisplayProfile,
+        remainingSeconds: Int,
+        trigger: AutomaticApplyTrigger
+    ) {
+        PendingApplyPanelController.shared.show(
+            profile: profile,
+            remainingSeconds: remainingSeconds,
+            trigger: trigger,
+            applyNow: {
+                self.pendingApplyTask?.cancel()
+                PendingApplyPanelController.shared.close()
+                self.automaticCoordinator.state = .idle
+                Task {
+                    await self.apply(profile)
+                }
+            },
+            stop: {
+                self.pendingApplyTask?.cancel()
+                self.automaticCoordinator.stopPendingApply()
+                PendingApplyPanelController.shared.close()
+                self.recordActivity(ActivityLogEntry(
+                    type: .cancellation,
+                    trigger: trigger == .startup ? .startup : .automatic,
+                    profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                    metadata: ["reason": "userStoppedPendingApply"]
+                ))
+            }
+        )
+    }
+
+    private func rereadCurrentFingerprint(
+        fallback: DisplaySetupFingerprint
+    ) async throws -> DisplaySetupFingerprint {
+        let service = try FirstRunSetupService.live()
+        guard case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
+            return fallback
+        }
+        return layout.displaySetupFingerprint
+    }
+
+    private func automaticDefaultProfile(for fingerprint: DisplaySetupFingerprint) -> DisplayProfile? {
+        guard let rule = document.automaticDefaultRules.first(where: {
+            $0.displaySetupFingerprint == fingerprint
+        }) else {
+            return nil
+        }
+        return document.profiles.first { $0.id == rule.profileId }
+    }
+
+    private func recordAutomaticDecision(state: AutomaticApplyState, trigger: AutomaticApplyTrigger) {
+        let activityTrigger: ActivityTrigger = trigger == .startup ? .startup : .automatic
+        switch state {
+        case let .pending(profile, remainingSeconds, _):
+            recordActivity(
+                ActivityLogEntry(
+                    type: .pendingCountdown,
+                    trigger: activityTrigger,
+                    profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                    metadata: ["remainingSeconds": "\(remainingSeconds)"]
+                )
+            )
+        case let .needsChoice(matchingProfiles):
+            recordActivity(
+                ActivityLogEntry(
+                    type: .matchingDecision,
+                    trigger: activityTrigger,
+                    metadata: ["matchingProfiles": "\(matchingProfiles.count)"]
+                )
+            )
+        case .idle:
+            recordActivity(
+                ActivityLogEntry(
+                    type: .displaySetChanged,
+                    trigger: activityTrigger,
+                    metadata: ["result": "idle"]
+                )
+            )
+        }
+    }
+
+    private func recordActivity(
+        type: ActivityLogEventType,
+        trigger: ActivityTrigger,
+        profile: DisplayProfile,
+        result: DisplayplacerBackendRunResult
+    ) {
+        recordActivity(
+            ActivityLogEntry(
+                type: type,
+                trigger: trigger,
+                profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                backend: BackendSnapshot(
+                    path: result.backendPath,
+                    version: result.backendVersion,
+                    source: result.backendSource
+                ),
+                command: profile.command,
+                stdout: result.stdout,
+                stderr: result.stderr,
+                exitCode: result.exitCode
+            )
+        )
+    }
+
+    private func recordActivity(_ entry: ActivityLogEntry) {
+        try? ActivityLogRecorder(store: DisplayRecallStore.live()).record(entry)
     }
 }
 
@@ -397,7 +891,7 @@ struct MenuBarContentView: View {
             var manager = ProfileManager(document: document)
             document = try manager.saveCurrentLayout(
                 layout,
-                name: localization.defaultProfileName(index: document.profiles.count + 1)
+                name: localization.defaultProfileName(existingNames: document.profiles.map(\.name))
             )
             try DisplayRecallStore.live().save(document)
             currentFingerprint = layout.displaySetupFingerprint
@@ -1349,7 +1843,7 @@ struct ProfilesContentView: View {
             }
             createProfileSheet = CreateProfileSheetState(
                 layout: layout,
-                suggestedName: localization.defaultProfileName(index: document.profiles.count + 1),
+                suggestedName: localization.defaultProfileName(existingNames: document.profiles.map(\.name)),
                 makeAutomaticDefault: true
             )
         } catch {
