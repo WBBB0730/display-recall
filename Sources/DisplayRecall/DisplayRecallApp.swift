@@ -290,6 +290,12 @@ struct MenuBarContentView: View {
             let result = try await manager.apply(item.profile) { arguments in
                 try await runner.run(arguments: arguments)
             }
+            recordActivity(
+                type: result.exitCode == 0 ? .profileApplied : .profileApplyFailed,
+                trigger: .manual,
+                profile: item.profile,
+                result: result
+            )
             if item.requiresHighRiskApply {
                 statusMessage = result.exitCode == 0
                     ? "Applied \(item.profile.name). Review this high-risk change."
@@ -309,17 +315,82 @@ struct MenuBarContentView: View {
 
         switch trigger {
         case .displayChange:
-            _ = automaticCoordinator.handleDisplayChange(
+            let state = automaticCoordinator.handleDisplayChange(
                 document: document,
                 currentFingerprint: currentFingerprint,
                 automationStatus: automationStatus
             )
+            recordAutomaticDecision(state: state, trigger: trigger)
         case .startup:
-            _ = automaticCoordinator.handleStartup(
+            let state = automaticCoordinator.handleStartup(
                 document: document,
                 currentFingerprint: currentFingerprint,
                 automationStatus: automationStatus
             )
+            recordAutomaticDecision(state: state, trigger: trigger)
+        }
+    }
+
+    private func recordAutomaticDecision(state: AutomaticApplyState, trigger: AutomaticApplyTrigger) {
+        let activityTrigger: ActivityTrigger = trigger == .startup ? .startup : .automatic
+        switch state {
+        case let .pending(profile, remainingSeconds, _):
+            recordActivity(
+                ActivityLogEntry(
+                    type: .pendingCountdown,
+                    trigger: activityTrigger,
+                    profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                    metadata: ["remainingSeconds": "\(remainingSeconds)"]
+                )
+            )
+        case let .needsChoice(matchingProfiles):
+            recordActivity(
+                ActivityLogEntry(
+                    type: .matchingDecision,
+                    trigger: activityTrigger,
+                    metadata: ["matchingProfiles": "\(matchingProfiles.count)"]
+                )
+            )
+        case .idle:
+            recordActivity(
+                ActivityLogEntry(
+                    type: .displaySetChanged,
+                    trigger: activityTrigger,
+                    metadata: ["result": "idle"]
+                )
+            )
+        }
+    }
+
+    private func recordActivity(
+        type: ActivityLogEventType,
+        trigger: ActivityTrigger,
+        profile: DisplayProfile,
+        result: DisplayplacerBackendRunResult
+    ) {
+        recordActivity(
+            ActivityLogEntry(
+                type: type,
+                trigger: trigger,
+                profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                backend: BackendSnapshot(
+                    path: result.backendPath,
+                    version: result.backendVersion,
+                    source: result.backendSource
+                ),
+                command: profile.command,
+                stdout: result.stdout,
+                stderr: result.stderr,
+                exitCode: result.exitCode
+            )
+        )
+    }
+
+    private func recordActivity(_ entry: ActivityLogEntry) {
+        do {
+            try ActivityLogRecorder(store: DisplayRecallStore.live()).record(entry)
+        } catch {
+            statusMessage = error.localizedDescription
         }
     }
 }
@@ -620,6 +691,22 @@ struct ProfilesContentView: View {
             let result = try await manager.apply(profile) { arguments in
                 try await runner.run(arguments: arguments)
             }
+            recordActivity(
+                ActivityLogEntry(
+                    type: result.exitCode == 0 ? .profileApplied : .profileApplyFailed,
+                    trigger: .manual,
+                    profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                    backend: BackendSnapshot(
+                        path: result.backendPath,
+                        version: result.backendVersion,
+                        source: result.backendSource
+                    ),
+                    command: profile.command,
+                    stdout: result.stdout,
+                    stderr: result.stderr,
+                    exitCode: result.exitCode
+                )
+            )
             statusMessage = result.exitCode == 0 ? "Applied \(profile.name)." : result.stderr
         } catch {
             statusMessage = error.localizedDescription
@@ -683,6 +770,14 @@ struct ProfilesContentView: View {
     private func isAutomaticDefault(_ profile: DisplayProfile) -> Bool {
         document.automaticDefaultRules.contains {
             $0.profileId == profile.id && $0.displaySetupFingerprint == profile.displaySetupFingerprint
+        }
+    }
+
+    private func recordActivity(_ entry: ActivityLogEntry) {
+        do {
+            try ActivityLogRecorder(store: DisplayRecallStore.live()).record(entry)
+        } catch {
+            statusMessage = error.localizedDescription
         }
     }
 }
@@ -758,6 +853,7 @@ struct ProfileDetailView: View {
 struct SettingsView: View {
     @AppStorage(DockIconPreference.userDefaultsKey) private var showDockIcon = false
     @State private var settings = AppSettings()
+    @State private var activityLog = ActivityLogStoreDocument()
     @State private var statusMessage = ""
 
     var body: some View {
@@ -828,6 +924,35 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Activity Log") {
+                if recentActivityEntries.isEmpty {
+                    Text("No recent activity.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(recentActivityEntries) { entry in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(ActivityLogRenderer.title(for: entry, language: settings.language))
+                                .fontWeight(.medium)
+                            Text(ActivityLogRenderer.summary(for: entry, language: settings.language))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Button("Copy Details") {
+                                copy(ActivityLogRenderer.copyableDiagnostics(for: entry))
+                            }
+                        }
+                    }
+                }
+
+                HStack {
+                    Button("Refresh") {
+                        loadActivityLog()
+                    }
+                    Button("Copy Diagnostic Export") {
+                        copyDiagnosticExport()
+                    }
+                }
+            }
+
             if !statusMessage.isEmpty {
                 Section("Status") {
                     Text(statusMessage)
@@ -840,13 +965,26 @@ struct SettingsView: View {
         .frame(width: 420)
         .task {
             loadSettings()
+            loadActivityLog()
         }
+    }
+
+    private var recentActivityEntries: [ActivityLogEntry] {
+        Array(activityLog.entries.suffix(5).reversed())
     }
 
     private func loadSettings() {
         do {
             settings = try DisplayRecallStore.live().loadSettings().settings
             showDockIcon = settings.showDockIcon
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func loadActivityLog() {
+        do {
+            activityLog = try DisplayRecallStore.live().loadActivityLog()
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -870,5 +1008,29 @@ struct SettingsView: View {
         } catch {
             statusMessage = error.localizedDescription
         }
+    }
+
+    private func copyDiagnosticExport() {
+        let backend = BackendSnapshot(
+            path: DisplayplacerBackend.bundledExecutableURL()?.path ?? "Backends",
+            version: DisplayplacerBackend.bundledMetadata.version,
+            source: DisplayplacerBackend.bundledMetadata.source
+        )
+        let recentErrors = activityLog.entries
+            .suffix(20)
+            .map(\.stderr)
+            .filter { !$0.isEmpty }
+        let export = DiagnosticExporter.export(
+            logs: activityLog.entries,
+            backend: backend,
+            recentErrors: recentErrors
+        )
+        copy("\(export.summary)\n\n\(export.json)")
+    }
+
+    private func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        statusMessage = "Copied."
     }
 }

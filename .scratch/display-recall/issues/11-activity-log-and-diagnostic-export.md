@@ -12,14 +12,14 @@ Implement a lightweight structured Activity Log and diagnostic export. Users sho
 
 ## Acceptance criteria
 
-- [ ] Activity Log records structured event types rather than pre-rendered localized text.
-- [ ] Events include timestamp, trigger, profile snapshot, backend info, command, stdout, stderr, exit code, and relevant metadata.
-- [ ] Events cover display changes, matching decisions, pending countdowns, cancellations, manual applies, automatic applies, hotkey applies, restores, import/export, backend verification, and failures.
-- [ ] Event titles and summaries render in the current UI language.
-- [ ] Commands, paths, IDs, stdout, and stderr remain unlocalized.
-- [ ] Logs are retained with a bounded policy such as recent count or recent days.
-- [ ] Users can copy relevant diagnostic details from an error or log entry.
-- [ ] Diagnostic export is separate from profile backup and can include logs, backend info, recent errors, and a readable summary.
+- [x] Activity Log records structured event types rather than pre-rendered localized text.
+- [x] Events include timestamp, trigger, profile snapshot, backend info, command, stdout, stderr, exit code, and relevant metadata.
+- [x] Events cover display changes, matching decisions, pending countdowns, cancellations, manual applies, automatic applies, hotkey applies, restores, import/export, backend verification, and failures.
+- [x] Event titles and summaries render in the current UI language.
+- [x] Commands, paths, IDs, stdout, and stderr remain unlocalized.
+- [x] Logs are retained with a bounded policy such as recent count or recent days.
+- [x] Users can copy relevant diagnostic details from an error or log entry.
+- [x] Diagnostic export is separate from profile backup and can include logs, backend info, recent errors, and a readable summary.
 
 ## Blocked by
 

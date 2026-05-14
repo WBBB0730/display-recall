@@ -79,17 +79,26 @@ public struct DisplayRecallMigrations {
         }
         return document
     }
+
+    public static func migrateActivityLog(_ document: ActivityLogStoreDocument) throws -> ActivityLogStoreDocument {
+        guard document.schemaVersion <= ActivityLogStoreDocument.currentSchemaVersion else {
+            throw DisplayRecallStoreError.unsupportedFutureSchema(version: document.schemaVersion)
+        }
+        return ActivityLogStoreDocument(schemaVersion: document.schemaVersion, entries: document.entries)
+    }
 }
 
 public struct DisplayRecallStore: Sendable {
     public let applicationSupportDirectory: URL
     public let profilesURL: URL
     public let settingsURL: URL
+    public let activityLogURL: URL
 
     public init(applicationSupportDirectory: URL) {
         self.applicationSupportDirectory = applicationSupportDirectory
         self.profilesURL = applicationSupportDirectory.appendingPathComponent("profiles.json")
         self.settingsURL = applicationSupportDirectory.appendingPathComponent("settings.json")
+        self.activityLogURL = applicationSupportDirectory.appendingPathComponent("activity-log.json")
     }
 
     public static func live() throws -> DisplayRecallStore {
@@ -130,6 +139,17 @@ public struct DisplayRecallStore: Sendable {
         return try DisplayRecallMigrations.migrateSettings(document)
     }
 
+    public func loadActivityLog() throws -> ActivityLogStoreDocument {
+        guard FileManager.default.fileExists(atPath: activityLogURL.path) else {
+            return ActivityLogStoreDocument()
+        }
+
+        let data = try Data(contentsOf: activityLogURL)
+        try rejectFutureSchema(in: data, currentVersion: ActivityLogStoreDocument.currentSchemaVersion)
+        let document = try decoder.decode(ActivityLogStoreDocument.self, from: data)
+        return try DisplayRecallMigrations.migrateActivityLog(document)
+    }
+
     public func save(_ document: ProfileStoreDocument) throws {
         try createDirectoryIfNeeded()
         let data = try encoder.encode(document)
@@ -140,6 +160,16 @@ public struct DisplayRecallStore: Sendable {
         try createDirectoryIfNeeded()
         let data = try encoder.encode(document)
         try data.write(to: settingsURL, options: .atomic)
+    }
+
+    public func save(_ document: ActivityLogStoreDocument) throws {
+        try createDirectoryIfNeeded()
+        let retainedDocument = ActivityLogStoreDocument(
+            schemaVersion: document.schemaVersion,
+            entries: document.entries
+        )
+        let data = try encoder.encode(retainedDocument)
+        try data.write(to: activityLogURL, options: .atomic)
     }
 
     private func createDirectoryIfNeeded() throws {
