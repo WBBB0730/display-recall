@@ -9,10 +9,17 @@ BUNDLE_ID="dev.wbbb.display-recall"
 MINIMUM_SYSTEM_VERSION="13.0"
 BUILD_ROOT="$ROOT_DIR/.build/apple"
 APP_DIR="$ROOT_DIR/dist/$APP_NAME.app"
+VERSION="0.1.0"
+BUILD_NUMBER="1"
+SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-https://github.com/wbbb/display-recall/releases/latest/download/appcast.xml}"
+SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
 
-swift build \
-  --configuration "$CONFIGURATION" \
-  --scratch-path "$BUILD_ROOT"
+BUILD_ARGUMENTS=(swift build --configuration "$CONFIGURATION" --scratch-path "$BUILD_ROOT")
+if [[ "$CONFIGURATION" == "release" ]]; then
+  BUILD_ARGUMENTS+=(--arch arm64 --arch x86_64)
+fi
+
+"${BUILD_ARGUMENTS[@]}"
 
 EXECUTABLE_PATH="$(find "$BUILD_ROOT" -path "*/$CONFIGURATION/$EXECUTABLE_NAME" -type f | head -n 1)"
 if [[ -z "$EXECUTABLE_PATH" ]]; then
@@ -48,13 +55,19 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>$VERSION</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>$BUILD_NUMBER</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MINIMUM_SYSTEM_VERSION</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
+  <key>SUEnableAutomaticChecks</key>
+  <false/>
+  <key>SUFeedURL</key>
+  <string>$SPARKLE_FEED_URL</string>
+  <key>SUPublicEDKey</key>
+  <string>$SPARKLE_PUBLIC_ED_KEY</string>
 </dict>
 </plist>
 PLIST

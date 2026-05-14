@@ -12,16 +12,16 @@ Prepare the app for direct distribution outside the Mac App Store. Release build
 
 ## Acceptance criteria
 
-- [ ] Release builds are Universal 2.
-- [ ] Release builds are Developer ID signed.
-- [ ] Release builds are notarized.
-- [ ] The packaged app includes the verified bundled backend for supported architectures.
-- [ ] Sparkle is integrated for manual update checks.
-- [ ] Sparkle supports optional automatic checks without silent forced installation.
-- [ ] Update packages are signed according to Sparkle requirements.
-- [ ] The app exposes version/build number in About.
-- [ ] GitHub Release packaging produces a user-installable artifact.
-- [ ] Mac App Store-specific assumptions are not introduced.
+- [x] Release builds are Universal 2.
+- [x] Release builds are Developer ID signed.
+- [x] Release builds are notarized.
+- [x] The packaged app includes the verified bundled backend for supported architectures.
+- [x] Sparkle is integrated for manual update checks.
+- [x] Sparkle supports optional automatic checks without silent forced installation.
+- [x] Update packages are signed according to Sparkle requirements.
+- [x] The app exposes version/build number in About.
+- [x] GitHub Release packaging produces a user-installable artifact.
+- [x] Mac App Store-specific assumptions are not introduced.
 
 ## Blocked by
 

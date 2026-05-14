@@ -982,6 +982,7 @@ struct ProfileDetailView: View {
 }
 
 struct SettingsView: View {
+    @Environment(\.openURL) private var openURL
     @AppStorage(DockIconPreference.userDefaultsKey) private var showDockIcon = false
     @State private var settings = AppSettings()
     @State private var activityLog = ActivityLogStoreDocument()
@@ -1052,6 +1053,15 @@ struct SettingsView: View {
                 Text("Shortcuts are optional. Permission is requested only after a shortcut is configured.")
                     .foregroundStyle(.secondary)
                 Text("Configured shortcuts: \(settings.shortcutBindings.filter { $0.keyEquivalent?.isEmpty == false }.count)")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Updates") {
+                LabeledContent("Version", value: AboutMetadata.current().displayString)
+                Button("Check for Updates") {
+                    openURL(ReleaseConfiguration.production().sparklePolicy.feedURL)
+                }
+                Text("Automatic update checks are optional and never install silently.")
                     .foregroundStyle(.secondary)
             }
 
