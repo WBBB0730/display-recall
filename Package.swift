@@ -27,7 +27,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "DisplayRecall",
-            dependencies: ["DisplayRecallCore"]
+            dependencies: ["DisplayRecallCore"],
+            resources: [
+                .process("Resources")
+            ]
         ),
         .testTarget(
             name: "DisplayRecallCoreTests",

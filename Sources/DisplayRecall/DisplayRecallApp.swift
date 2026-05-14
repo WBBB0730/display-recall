@@ -1,5 +1,6 @@
 import AppKit
 import DisplayRecallCore
+import ServiceManagement
 import SwiftUI
 
 @main
@@ -756,6 +757,8 @@ struct ProfileDetailView: View {
 
 struct SettingsView: View {
     @AppStorage(DockIconPreference.userDefaultsKey) private var showDockIcon = false
+    @State private var settings = AppSettings()
+    @State private var statusMessage = ""
 
     var body: some View {
         Form {
@@ -763,15 +766,109 @@ struct SettingsView: View {
                 LabeledContent("Source", value: "Bundled")
                 LabeledContent("displayplacer", value: DisplayplacerBackend.bundledMetadata.version)
                 LabeledContent("Architecture", value: DisplayplacerBackendArchitecture.current.rawValue)
+                TextField("Custom backend path", text: Binding(
+                    get: { settings.backendSelection.customPath ?? "" },
+                    set: { newValue in
+                        settings.backendSelection = BackendSelection(
+                            source: newValue.isEmpty ? .bundled : .custom(path: newValue),
+                            customPath: newValue.isEmpty ? nil : newValue
+                        )
+                        saveSettings()
+                    }
+                ))
             }
 
-            Toggle("Show Dock icon", isOn: $showDockIcon)
-                .onChange(of: showDockIcon) { newValue in
-                    DockIconController.apply(showDockIcon: newValue)
+            Section("Automation") {
+                Toggle("Launch at Login", isOn: Binding(
+                    get: { settings.launchAtLogin },
+                    set: { newValue in
+                        settings.launchAtLogin = newValue
+                        setLaunchAtLogin(newValue)
+                        saveSettings()
+                    }
+                ))
+
+                Toggle("Automatic Apply", isOn: Binding(
+                    get: { settings.automaticApplyEnabled },
+                    set: { settings.automaticApplyEnabled = $0; saveSettings() }
+                ))
+
+                Stepper(
+                    "Countdown: \(settings.automaticApplyCountdownSeconds)s",
+                    value: Binding(
+                        get: { settings.automaticApplyCountdownSeconds },
+                        set: { settings.automaticApplyCountdownSeconds = $0; saveSettings() }
+                    ),
+                    in: 1...30
+                )
+            }
+
+            Section("Appearance") {
+                Toggle("Show Dock icon", isOn: $showDockIcon)
+                    .onChange(of: showDockIcon) { newValue in
+                        settings.showDockIcon = newValue
+                        DockIconController.apply(showDockIcon: newValue)
+                        saveSettings()
+                    }
+
+                Picker("Language", selection: Binding(
+                    get: { settings.language },
+                    set: { settings.language = $0; saveSettings() }
+                )) {
+                    ForEach(LanguagePreference.allCases, id: \.self) { language in
+                        Text(language.title).tag(language)
+                    }
                 }
+            }
+
+            Section("Shortcuts") {
+                Text("Shortcuts are optional. Permission is requested only after a shortcut is configured.")
+                    .foregroundStyle(.secondary)
+                Text("Configured shortcuts: \(settings.shortcutBindings.filter { $0.keyEquivalent?.isEmpty == false }.count)")
+                    .foregroundStyle(.secondary)
+            }
+
+            if !statusMessage.isEmpty {
+                Section("Status") {
+                    Text(statusMessage)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
         .padding()
         .frame(width: 420)
+        .task {
+            loadSettings()
+        }
+    }
+
+    private func loadSettings() {
+        do {
+            settings = try DisplayRecallStore.live().loadSettings().settings
+            showDockIcon = settings.showDockIcon
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func saveSettings() {
+        do {
+            try DisplayRecallStore.live().save(SettingsStoreDocument(settings: settings))
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            statusMessage = error.localizedDescription
+        }
     }
 }

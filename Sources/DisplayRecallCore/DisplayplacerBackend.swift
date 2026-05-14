@@ -13,10 +13,48 @@ public enum DisplayplacerBackendArchitecture: String, Equatable, Sendable {
     }
 }
 
-public enum DisplayplacerBackendSource: Equatable, Sendable {
+public enum DisplayplacerBackendSource: Equatable, Sendable, Codable {
     case bundled
     case system(path: String)
     case custom(path: String)
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case path
+    }
+
+    private enum Kind: String, Codable {
+        case bundled
+        case system
+        case custom
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let kind = try container.decode(Kind.self, forKey: .kind)
+        switch kind {
+        case .bundled:
+            self = .bundled
+        case .system:
+            self = .system(path: try container.decode(String.self, forKey: .path))
+        case .custom:
+            self = .custom(path: try container.decode(String.self, forKey: .path))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .bundled:
+            try container.encode(Kind.bundled, forKey: .kind)
+        case let .system(path):
+            try container.encode(Kind.system, forKey: .kind)
+            try container.encode(path, forKey: .path)
+        case let .custom(path):
+            try container.encode(Kind.custom, forKey: .kind)
+            try container.encode(path, forKey: .path)
+        }
+    }
 }
 
 public struct DisplayplacerBackendAsset: Equatable, Sendable {

@@ -12,19 +12,19 @@ Implement Settings for global app behavior: backend selection visibility, open a
 
 ## Acceptance criteria
 
-- [ ] Settings exposes current backend source/version/path and allows advanced custom backend selection.
-- [ ] Settings can enable or disable launch at login.
-- [ ] Settings can enable or disable automatic apply globally.
-- [ ] Settings can configure the automatic apply countdown, defaulting to 5 seconds.
-- [ ] Settings can show or hide the Dock icon.
-- [ ] Settings supports language choices: System, English, 简体中文.
-- [ ] UI strings are localized in English and Simplified Chinese.
-- [ ] Profile auto-generated names use the current UI language.
-- [ ] Existing profile names do not change when language changes.
-- [ ] Each profile can optionally have a global shortcut.
-- [ ] Shortcuts default to empty.
-- [ ] Shortcut setup requests any required permission only when the user configures shortcuts.
-- [ ] In-app shortcut conflicts are blocked and common system shortcut conflicts are warned about.
+- [x] Settings exposes current backend source/version/path and allows advanced custom backend selection.
+- [x] Settings can enable or disable launch at login.
+- [x] Settings can enable or disable automatic apply globally.
+- [x] Settings can configure the automatic apply countdown, defaulting to 5 seconds.
+- [x] Settings can show or hide the Dock icon.
+- [x] Settings supports language choices: System, English, 简体中文.
+- [x] UI strings are localized in English and Simplified Chinese.
+- [x] Profile auto-generated names use the current UI language.
+- [x] Existing profile names do not change when language changes.
+- [x] Each profile can optionally have a global shortcut.
+- [x] Shortcuts default to empty.
+- [x] Shortcut setup requests any required permission only when the user configures shortcuts.
+- [x] In-app shortcut conflicts are blocked and common system shortcut conflicts are warned about.
 
 ## Blocked by
 

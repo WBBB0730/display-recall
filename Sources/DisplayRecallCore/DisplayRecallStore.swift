@@ -3,10 +3,31 @@ import Foundation
 public struct AppSettings: Equatable, Sendable, Codable {
     public var setupCompleted: Bool
     public var showDockIcon: Bool
+    public var launchAtLogin: Bool
+    public var automaticApplyEnabled: Bool
+    public var automaticApplyCountdownSeconds: Int
+    public var language: LanguagePreference
+    public var backendSelection: BackendSelection
+    public var shortcutBindings: [ShortcutBinding]
 
-    public init(setupCompleted: Bool = false, showDockIcon: Bool = false) {
+    public init(
+        setupCompleted: Bool = false,
+        showDockIcon: Bool = false,
+        launchAtLogin: Bool = false,
+        automaticApplyEnabled: Bool = true,
+        automaticApplyCountdownSeconds: Int = 5,
+        language: LanguagePreference = .system,
+        backendSelection: BackendSelection = BackendSelection(),
+        shortcutBindings: [ShortcutBinding] = []
+    ) {
         self.setupCompleted = setupCompleted
         self.showDockIcon = showDockIcon
+        self.launchAtLogin = launchAtLogin
+        self.automaticApplyEnabled = automaticApplyEnabled
+        self.automaticApplyCountdownSeconds = automaticApplyCountdownSeconds
+        self.language = language
+        self.backendSelection = backendSelection
+        self.shortcutBindings = shortcutBindings
     }
 }
 
