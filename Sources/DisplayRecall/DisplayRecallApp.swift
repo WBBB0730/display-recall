@@ -1065,6 +1065,24 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Acknowledgements") {
+                Text(AcknowledgementsCatalog.current().independenceNotice)
+                    .foregroundStyle(.secondary)
+
+                ForEach(AcknowledgementsCatalog.current().items) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(item.name) \(item.version)")
+                            .fontWeight(.medium)
+                        Text("\(item.licenseName) - \(item.modificationStatus.title)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Open Project") {
+                            openURL(item.projectURL)
+                        }
+                    }
+                }
+            }
+
             Section("Activity Log") {
                 if recentActivityEntries.isEmpty {
                     Text("No recent activity.")

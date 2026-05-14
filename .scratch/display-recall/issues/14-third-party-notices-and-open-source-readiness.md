@@ -12,13 +12,13 @@ Add the legal and project transparency materials needed for an open-source Displ
 
 ## Acceptance criteria
 
-- [ ] The project includes an MIT license for Display Recall.
-- [ ] The app includes an acknowledgements/licenses surface.
-- [ ] `displayplacer` attribution includes project name, author/project link, version, MIT license text, and modification status.
-- [ ] Sparkle attribution and license information are included.
-- [ ] Repository third-party notices document bundled components and versions.
-- [ ] About identifies Display Recall as an independent companion for `displayplacer`, not an official app.
-- [ ] Release documentation explains bundled backend behavior and advanced backend fallback at a high level.
+- [x] The project includes an MIT license for Display Recall.
+- [x] The app includes an acknowledgements/licenses surface.
+- [x] `displayplacer` attribution includes project name, author/project link, version, MIT license text, and modification status.
+- [x] Sparkle attribution and license information are included.
+- [x] Repository third-party notices document bundled components and versions.
+- [x] About identifies Display Recall as an independent companion for `displayplacer`, not an official app.
+- [x] Release documentation explains bundled backend behavior and advanced backend fallback at a high level.
 
 ## Blocked by
 
