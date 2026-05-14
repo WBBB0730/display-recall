@@ -44,11 +44,70 @@ enum DockIconController {
 
 struct MenuBarContentView: View {
     @Environment(\.openWindow) private var openWindow
+    @State private var document = ProfileStoreDocument()
+    @State private var currentFingerprint: DisplaySetupFingerprint?
+    @State private var automationStatus = AutomationStatus.enabled
+    @State private var statusMessage = ""
+
+    private var menuModel: MenuBarModel {
+        MenuBarModel.build(
+            document: document,
+            currentFingerprint: currentFingerprint,
+            automationStatus: automationStatus
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(AppConfiguration.displayName)
-                .font(.headline)
+            HStack {
+                Image(systemName: menuModel.iconState.systemImage)
+                VStack(alignment: .leading) {
+                    Text(AppConfiguration.displayName)
+                        .font(.headline)
+                    Text(menuModel.statusTitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Divider()
+
+            if !menuModel.matchingProfiles.isEmpty {
+                Text("Current Display Setup")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach(menuModel.matchingProfiles) { item in
+                    profileButton(item)
+                }
+            } else {
+                Text("No matching profiles")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !menuModel.otherProfiles.isEmpty {
+                DisclosureGroup("Other Profiles") {
+                    ForEach(menuModel.otherProfiles) { item in
+                        profileButton(item)
+                    }
+                }
+            }
+
+            Button("Save Current Layout") {
+                Task {
+                    await saveCurrentLayout()
+                }
+            }
+
+            Button(automationStatus == .paused ? "Resume Automation" : "Pause Automation") {
+                automationStatus = automationStatus == .paused ? .enabled : .paused
+            }
+
+            if !statusMessage.isEmpty {
+                Text(statusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             Divider()
 
@@ -69,7 +128,86 @@ struct MenuBarContentView: View {
             }
         }
         .padding(14)
-        .frame(width: 260)
+        .frame(width: 300)
+        .task {
+            await refreshCurrentSetup()
+            loadProfiles()
+        }
+    }
+
+    private func profileButton(_ item: MenuBarProfileItem) -> some View {
+        Button {
+            Task {
+                await apply(item)
+            }
+        } label: {
+            HStack {
+                Text(item.profile.name)
+                if item.isAutomaticDefault {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                }
+                if item.requiresHighRiskApply {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
+    }
+
+    private func loadProfiles() {
+        do {
+            document = try DisplayRecallStore.live().loadProfiles()
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func refreshCurrentSetup() async {
+        do {
+            let service = try FirstRunSetupService.live()
+            if case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() {
+                currentFingerprint = layout.displaySetupFingerprint
+            }
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func saveCurrentLayout() async {
+        do {
+            let service = try FirstRunSetupService.live()
+            guard case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
+                statusMessage = "Could not read current layout."
+                return
+            }
+            var manager = ProfileManager(document: document)
+            document = try manager.saveCurrentLayout(layout)
+            try DisplayRecallStore.live().save(document)
+            currentFingerprint = layout.displaySetupFingerprint
+            statusMessage = "Saved current layout."
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func apply(_ item: MenuBarProfileItem) async {
+        do {
+            let runner = try DisplayplacerBackend.bundledRunner()
+            let manager = ProfileManager(document: document)
+            let result = try await manager.apply(item.profile) { arguments in
+                try await runner.run(arguments: arguments)
+            }
+            if item.requiresHighRiskApply {
+                statusMessage = result.exitCode == 0
+                    ? "Applied \(item.profile.name). Review this high-risk change."
+                    : result.stderr
+            } else {
+                statusMessage = result.exitCode == 0 ? "Applied \(item.profile.name)." : result.stderr
+            }
+        } catch {
+            statusMessage = error.localizedDescription
+        }
     }
 }
 
