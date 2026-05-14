@@ -2,6 +2,7 @@ import AppKit
 import DisplayRecallCore
 import ServiceManagement
 import SwiftUI
+import UniformTypeIdentifiers
 
 @main
 struct DisplayRecallApp: App {
@@ -554,12 +555,12 @@ struct SetupView: View {
 
 struct ProfilesContentView: View {
     @State private var document = ProfileStoreDocument()
-    @State private var selectedProfileID: UUID?
+    @State private var selectedProfileIDs = Set<UUID>()
     @State private var statusMessage = ""
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selectedProfileID) {
+            List(selection: $selectedProfileIDs) {
                 ForEach(document.profiles) { profile in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(profile.name)
@@ -585,6 +586,20 @@ struct ProfilesContentView: View {
                 } label: {
                     Label("Save Current Layout", systemImage: "plus")
                 }
+                Button {
+                    exportSelectedProfiles()
+                } label: {
+                    Label("Export Selected", systemImage: "square.and.arrow.up")
+                }
+                .disabled(selectedProfileIDs.isEmpty)
+
+                Button {
+                    Task {
+                        await importBackup()
+                    }
+                } label: {
+                    Label("Import", systemImage: "square.and.arrow.down")
+                }
             }
         } detail: {
             if let selectedProfileBinding {
@@ -607,6 +622,9 @@ struct ProfilesContentView: View {
                         Task {
                             await rebind(profile)
                         }
+                    },
+                    onExport: { profile in
+                        exportProfile(profile)
                     },
                     onSaveCommand: { profile, command in
                         updateCommand(profile, command: command)
@@ -635,7 +653,7 @@ struct ProfilesContentView: View {
     }
 
     private var selectedProfileBinding: Binding<DisplayProfile>? {
-        guard let selectedProfileID,
+        guard let selectedProfileID = selectedProfileIDs.first,
               let index = document.profiles.firstIndex(where: { $0.id == selectedProfileID }) else {
             return nil
         }
@@ -653,7 +671,9 @@ struct ProfilesContentView: View {
         do {
             let store = try DisplayRecallStore.live()
             document = try store.loadProfiles()
-            selectedProfileID = selectedProfileID ?? document.profiles.first?.id
+            if selectedProfileIDs.isEmpty, let firstProfileID = document.profiles.first?.id {
+                selectedProfileIDs = [firstProfileID]
+            }
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -676,7 +696,7 @@ struct ProfilesContentView: View {
             }
             var manager = ProfileManager(document: document)
             document = try manager.saveCurrentLayout(layout)
-            selectedProfileID = document.profiles.last?.id
+            selectedProfileIDs = Set(document.profiles.last.map { [$0.id] } ?? [])
             saveDocument()
             statusMessage = "Saved current layout."
         } catch {
@@ -773,6 +793,113 @@ struct ProfilesContentView: View {
         }
     }
 
+    private func exportSelectedProfiles() {
+        let selection: ProfileExportSelection = selectedProfileIDs.count == document.profiles.count
+            ? .all
+            : .multiple(Array(selectedProfileIDs))
+        export(selection: selection, suggestedName: "Display Recall Profiles")
+    }
+
+    private func exportProfile(_ profile: DisplayProfile) {
+        export(selection: .single(profile.id), suggestedName: profile.name)
+    }
+
+    private func export(selection: ProfileExportSelection, suggestedName: String) {
+        do {
+            let settings = try? DisplayRecallStore.live().loadSettings().settings
+            let backup = ProfileExporter.export(document: document, settings: settings, selection: selection)
+            try saveBackup(backup, suggestedName: suggestedName)
+            recordActivity(ActivityLogEntry(type: .importExport, trigger: .manual, metadata: ["action": "export"]))
+            statusMessage = "Exported backup."
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func importBackup() async {
+        do {
+            guard let backup = try openBackup() else {
+                return
+            }
+            let currentFingerprint = await currentDisplayFingerprint()
+            let preview = try ProfileImporter.preview(
+                backup: backup,
+                currentDocument: document,
+                currentFingerprint: currentFingerprint
+            )
+            guard confirmImport(preview: preview) else {
+                return
+            }
+
+            document = try ProfileImporter.importProfiles(
+                from: backup,
+                into: document,
+                currentFingerprint: currentFingerprint,
+                conflictStrategy: .keepBoth
+            )
+            saveDocument()
+            recordActivity(ActivityLogEntry(
+                type: .importExport,
+                trigger: .manual,
+                metadata: [
+                    "action": "import",
+                    "profiles": "\(preview.profileCount)",
+                    "conflicts": "\(preview.conflicts.count)"
+                ]
+            ))
+            statusMessage = "Imported \(preview.profileCount) profiles."
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func currentDisplayFingerprint() async -> DisplaySetupFingerprint? {
+        guard let service = try? FirstRunSetupService.live(),
+              case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
+            return nil
+        }
+        return layout.displaySetupFingerprint
+    }
+
+    private func saveBackup(_ backup: ProfileBackupDocument, suggestedName: String) throws {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "\(suggestedName).display-recall.json"
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return
+        }
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(backup)
+        try data.write(to: url, options: .atomic)
+    }
+
+    private func openBackup() throws -> ProfileBackupDocument? {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return nil
+        }
+
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(ProfileBackupDocument.self, from: data)
+    }
+
+    private func confirmImport(preview: ProfileImportPreview) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Import \(preview.profileCount) profiles?"
+        alert.informativeText = [
+            "Profiles: \(preview.profileNames.joined(separator: ", "))",
+            "Conflicts: \(preview.conflicts.count)",
+            "Matching current setup: \(preview.matchingStatuses.filter(\.matchesCurrentDisplaySetup).count)"
+        ].joined(separator: "\n")
+        alert.addButton(withTitle: "Import")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
     private func recordActivity(_ entry: ActivityLogEntry) {
         do {
             try ActivityLogRecorder(store: DisplayRecallStore.live()).record(entry)
@@ -790,6 +917,7 @@ struct ProfileDetailView: View {
     let onSetDefault: (DisplayProfile) -> Void
     let onClearDefault: (DisplayProfile) -> Void
     let onRebind: (DisplayProfile) -> Void
+    let onExport: (DisplayProfile) -> Void
     let onSaveCommand: (DisplayProfile, String) -> Void
 
     @State private var commandDraft = ""
@@ -830,6 +958,9 @@ struct ProfileDetailView: View {
                 HStack {
                     Button("Save Command") {
                         onSaveCommand(profile, commandDraft)
+                    }
+                    Button("Export") {
+                        onExport(profile)
                     }
                     Button("Apply") {
                         onApply(profile)
