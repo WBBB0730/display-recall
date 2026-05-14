@@ -82,13 +82,8 @@ public struct FirstRunSetupService: Sendable {
 
 public enum CurrentDisplayLayoutParser {
     public static func parse(_ output: String) throws -> CurrentDisplayLayout {
-        let command = output
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .map(String.init)
-            .last { $0.hasPrefix("displayplacer ") }?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard let command else {
+        let setup = try DisplayListParser.parse(output)
+        guard let command = setup.currentCommand?.trimmingCharacters(in: .whitespacesAndNewlines) else {
             throw DisplayplacerBackendError(
                 kind: .nonZeroExit,
                 backendPath: "displayplacer",
@@ -98,44 +93,15 @@ public enum CurrentDisplayLayoutParser {
             )
         }
 
-        let ids = parsePersistentIDs(from: command)
-        let types = parseDisplayTypes(from: output)
-        let hasBuiltInDisplay = types.contains { $0.localizedCaseInsensitiveContains("built-in") }
-        let displayCount = ids.count
-
         return CurrentDisplayLayout(
             command: command,
-            generatedProfileName: generatedName(from: types, fallbackCount: displayCount),
-            displaySetupFingerprint: DisplaySetupFingerprint(
-                rawValue: "\(ids.sorted().joined(separator: "+"))|builtIn:\(hasBuiltInDisplay)|count:\(displayCount)"
+            generatedProfileName: generatedName(
+                from: setup.displays.map(\.type),
+                fallbackCount: setup.displays.count
             ),
-            displaySummary: types.joined(separator: " + ")
+            displaySetupFingerprint: setup.fingerprint,
+            displaySummary: setup.summary
         )
-    }
-
-    private static func parsePersistentIDs(from command: String) -> [String] {
-        command
-            .components(separatedBy: "\"")
-            .filter { $0.hasPrefix("id:") }
-            .compactMap { segment in
-                segment
-                    .split(separator: " ")
-                    .first?
-                    .dropFirst(3)
-            }
-            .flatMap { idGroup in
-                idGroup.split(separator: "+").map(String.init)
-            }
-    }
-
-    private static func parseDisplayTypes(from output: String) -> [String] {
-        output
-            .split(separator: "\n")
-            .map(String.init)
-            .compactMap { line in
-                guard line.hasPrefix("Type: ") else { return nil }
-                return String(line.dropFirst("Type: ".count))
-            }
     }
 
     private static func generatedName(from types: [String], fallbackCount: Int) -> String {
