@@ -835,6 +835,232 @@ struct SetupView: View {
     }
 }
 
+private enum ProfileExportScope: String, CaseIterable, Identifiable {
+    case current
+    case selected
+    case all
+
+    var id: Self { self }
+}
+
+private struct ProfileExportSheetState: Identifiable {
+    let id = UUID()
+    let initialScope: ProfileExportScope
+    let currentProfileID: UUID?
+    let selectedProfileIDs: Set<UUID>
+}
+
+private struct ProfileImportPreviewSheetState: Identifiable {
+    let id = UUID()
+    let backup: ProfileBackupDocument
+    let preview: ProfileImportPreview
+    let currentFingerprint: DisplaySetupFingerprint?
+}
+
+private struct ExportProfilesSheet: View {
+    @EnvironmentObject private var localization: LocalizationController
+    let state: ProfileExportSheetState
+    let document: ProfileStoreDocument
+    let onCancel: () -> Void
+    let onExport: (ProfileExportScope) -> Void
+
+    @State private var scope: ProfileExportScope
+
+    init(
+        state: ProfileExportSheetState,
+        document: ProfileStoreDocument,
+        onCancel: @escaping () -> Void,
+        onExport: @escaping (ProfileExportScope) -> Void
+    ) {
+        self.state = state
+        self.document = document
+        self.onCancel = onCancel
+        self.onExport = onExport
+        _scope = State(initialValue: state.initialScope)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(localization.text(.exportProfiles))
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Text(localization.text(.chooseExportScope))
+                    .foregroundStyle(.secondary)
+            }
+
+            Picker(localization.text(.exportScope), selection: $scope) {
+                ForEach(ProfileExportScope.allCases) { scope in
+                    Text(title(for: scope)).tag(scope)
+                }
+            }
+            .pickerStyle(.radioGroup)
+
+            let preview = selectedPreview
+            LabeledContent(localization.text(.profileCount), value: "\(preview?.profileCount ?? 0)")
+            if let preview, !preview.profileNames.isEmpty {
+                Text(preview.profileNames.joined(separator: ", "))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
+
+            HStack {
+                Spacer()
+                Button(localization.text(.cancel), action: onCancel)
+                Button(localization.text(.export)) {
+                    onExport(scope)
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(selectedPreview == nil || selectedPreview?.profileCount == 0)
+            }
+        }
+        .padding(24)
+        .frame(width: 420)
+    }
+
+    private var selectedPreview: ProfileExportPreview? {
+        guard let selection = selection(for: scope) else {
+            return nil
+        }
+        return ProfileExporter.preview(document: document, selection: selection)
+    }
+
+    private func selection(for scope: ProfileExportScope) -> ProfileExportSelection? {
+        switch scope {
+        case .current:
+            guard let currentProfileID = state.currentProfileID else {
+                return nil
+            }
+            return .single(currentProfileID)
+        case .selected:
+            guard !state.selectedProfileIDs.isEmpty else {
+                return nil
+            }
+            return .multiple(Array(state.selectedProfileIDs))
+        case .all:
+            guard !document.profiles.isEmpty else {
+                return nil
+            }
+            return .all
+        }
+    }
+
+    private func title(for scope: ProfileExportScope) -> String {
+        switch scope {
+        case .current:
+            localization.text(.currentProfile)
+        case .selected:
+            localization.text(.selectedProfiles)
+        case .all:
+            localization.text(.allProfiles)
+        }
+    }
+}
+
+private struct ImportPreviewSheet: View {
+    @EnvironmentObject private var localization: LocalizationController
+    let state: ProfileImportPreviewSheetState
+    let onCancel: () -> Void
+    let onImport: (ImportConflictStrategy) -> Void
+
+    @State private var conflictStrategy = ImportConflictStrategy.keepBoth
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(localization.text(.importPreview))
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Text(localization.status(
+                    "Review this backup before importing.",
+                    chinese: "导入前先确认这个备份。"
+                ))
+                .foregroundStyle(.secondary)
+            }
+
+            Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
+                GridRow {
+                    Text(localization.text(.profileCount))
+                    Text("\(state.preview.profileCount)")
+                        .foregroundStyle(.secondary)
+                }
+                GridRow {
+                    Text(localization.text(.conflicts))
+                    Text("\(state.preview.conflicts.count)")
+                        .foregroundStyle(state.preview.conflicts.isEmpty ? Color.secondary : Color.orange)
+                }
+                GridRow {
+                    Text(localization.text(.matchingCurrentSetup))
+                    Text("\(matchingCount)")
+                        .foregroundStyle(.secondary)
+                }
+                GridRow {
+                    Text(localization.text(.needsRebind))
+                    Text("\(needsRebindCount)")
+                        .foregroundStyle(needsRebindCount == 0 ? Color.secondary : Color.orange)
+                }
+            }
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(state.preview.matchingStatuses, id: \.profileID) { status in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(status.profileName)
+                                    .fontWeight(.medium)
+                                if state.preview.conflicts.contains(where: { $0.importedProfileID == status.profileID }) {
+                                    Text(localization.text(.conflicts))
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+                            Spacer()
+                            Label(
+                                status.matchesCurrentDisplaySetup
+                                    ? localization.text(.matchesCurrentSetup)
+                                    : localization.text(.needsRebind),
+                                systemImage: status.matchesCurrentDisplaySetup ? "checkmark.circle" : "link.badge.plus"
+                            )
+                            .foregroundStyle(status.matchesCurrentDisplaySetup ? .green : .orange)
+                            .font(.caption)
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 180)
+
+            Picker(localization.text(.importConflictStrategy), selection: $conflictStrategy) {
+                Text(localization.text(.keepBoth)).tag(ImportConflictStrategy.keepBoth)
+                Text(localization.text(.replaceExisting)).tag(ImportConflictStrategy.replaceExisting)
+                Text(localization.text(.skipConflicts)).tag(ImportConflictStrategy.skipConflict)
+            }
+            .pickerStyle(.radioGroup)
+
+            HStack {
+                Spacer()
+                Button(localization.text(.cancel), action: onCancel)
+                Button(localization.text(.importProfiles)) {
+                    onImport(conflictStrategy)
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(width: 480)
+    }
+
+    private var matchingCount: Int {
+        state.preview.matchingStatuses.filter(\.matchesCurrentDisplaySetup).count
+    }
+
+    private var needsRebindCount: Int {
+        state.preview.matchingStatuses.count - matchingCount
+    }
+}
+
 struct ProfilesContentView: View {
     @EnvironmentObject private var localization: LocalizationController
     @State private var document = ProfileStoreDocument()
@@ -842,6 +1068,8 @@ struct ProfilesContentView: View {
     @State private var searchQuery = ""
     @State private var currentFingerprint: DisplaySetupFingerprint?
     @State private var statusMessage = ""
+    @State private var exportSheet: ProfileExportSheetState?
+    @State private var importPreviewSheet: ProfileImportPreviewSheetState?
 
     private var visibleProfiles: [DisplayProfile] {
         ProfileListFilter.filter(document.profiles, query: searchQuery)
@@ -892,9 +1120,9 @@ struct ProfilesContentView: View {
                 Button {
                     exportSelectedProfiles()
                 } label: {
-                    Label(localization.text(.exportSelected), systemImage: "square.and.arrow.up")
+                    Label(localization.text(.export), systemImage: "square.and.arrow.up")
                 }
-                .disabled(selectedProfileIDs.isEmpty)
+                .disabled(document.profiles.isEmpty)
 
                 Button {
                     Task {
@@ -956,6 +1184,33 @@ struct ProfilesContentView: View {
         .task {
             loadProfiles()
             await refreshCurrentFingerprint()
+        }
+        .sheet(item: $exportSheet) { sheet in
+            ExportProfilesSheet(
+                state: sheet,
+                document: document,
+                onCancel: {
+                    exportSheet = nil
+                },
+                onExport: { scope in
+                    exportSheet = nil
+                    export(selection: selection(for: scope, state: sheet), suggestedName: suggestedName(for: scope))
+                }
+            )
+            .environmentObject(localization)
+        }
+        .sheet(item: $importPreviewSheet) { sheet in
+            ImportPreviewSheet(
+                state: sheet,
+                onCancel: {
+                    importPreviewSheet = nil
+                },
+                onImport: { strategy in
+                    importPreviewSheet = nil
+                    performImport(sheet, conflictStrategy: strategy)
+                }
+            )
+            .environmentObject(localization)
         }
     }
 
@@ -1115,10 +1370,7 @@ struct ProfilesContentView: View {
     }
 
     private func exportSelectedProfiles() {
-        let selection: ProfileExportSelection = selectedProfileIDs.count == document.profiles.count
-            ? .all
-            : .multiple(Array(selectedProfileIDs))
-        export(selection: selection, suggestedName: "Display Recall Profiles")
+        presentExportSheet(defaultScope: selectedProfileIDs.isEmpty ? .all : .selected)
     }
 
     private func deleteProfile(_ profile: DisplayProfile) {
@@ -1157,10 +1409,25 @@ struct ProfilesContentView: View {
     }
 
     private func exportProfile(_ profile: DisplayProfile) {
-        export(selection: .single(profile.id), suggestedName: profile.name)
+        presentExportSheet(defaultScope: .current, currentProfileID: profile.id)
     }
 
-    private func export(selection: ProfileExportSelection, suggestedName: String) {
+    private func presentExportSheet(
+        defaultScope: ProfileExportScope,
+        currentProfileID: UUID? = nil
+    ) {
+        exportSheet = ProfileExportSheetState(
+            initialScope: defaultScope,
+            currentProfileID: currentProfileID ?? selectedProfileIDs.first,
+            selectedProfileIDs: selectedProfileIDs
+        )
+    }
+
+    private func export(selection: ProfileExportSelection?, suggestedName: String) {
+        guard let selection else {
+            return
+        }
+
         do {
             let settings = try? DisplayRecallStore.live().loadSettings().settings
             let backup = ProfileExporter.export(document: document, settings: settings, selection: selection)
@@ -1169,6 +1436,37 @@ struct ProfilesContentView: View {
             statusMessage = localization.status("Exported backup.", chinese: "已导出备份。")
         } catch {
             statusMessage = error.localizedDescription
+        }
+    }
+
+    private func selection(
+        for scope: ProfileExportScope,
+        state: ProfileExportSheetState
+    ) -> ProfileExportSelection? {
+        switch scope {
+        case .current:
+            guard let currentProfileID = state.currentProfileID else {
+                return nil
+            }
+            return .single(currentProfileID)
+        case .selected:
+            guard !state.selectedProfileIDs.isEmpty else {
+                return nil
+            }
+            return .multiple(Array(state.selectedProfileIDs))
+        case .all:
+            return .all
+        }
+    }
+
+    private func suggestedName(for scope: ProfileExportScope) -> String {
+        switch scope {
+        case .current:
+            selectedProfileBinding?.wrappedValue.name ?? "Display Recall Profile"
+        case .selected:
+            "Display Recall Selected Profiles"
+        case .all:
+            "Display Recall Profiles"
         }
     }
 
@@ -1183,15 +1481,26 @@ struct ProfilesContentView: View {
                 currentDocument: document,
                 currentFingerprint: currentFingerprint
             )
-            guard confirmImport(preview: preview) else {
-                return
-            }
+            importPreviewSheet = ProfileImportPreviewSheetState(
+                backup: backup,
+                preview: preview,
+                currentFingerprint: currentFingerprint
+            )
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
 
+    private func performImport(
+        _ state: ProfileImportPreviewSheetState,
+        conflictStrategy: ImportConflictStrategy
+    ) {
+        do {
             document = try ProfileImporter.importProfiles(
-                from: backup,
+                from: state.backup,
                 into: document,
-                currentFingerprint: currentFingerprint,
-                conflictStrategy: .keepBoth
+                currentFingerprint: state.currentFingerprint,
+                conflictStrategy: conflictStrategy
             )
             saveDocument()
             recordActivity(ActivityLogEntry(
@@ -1199,13 +1508,14 @@ struct ProfilesContentView: View {
                 trigger: .manual,
                 metadata: [
                     "action": "import",
-                    "profiles": "\(preview.profileCount)",
-                    "conflicts": "\(preview.conflicts.count)"
+                    "profiles": "\(state.preview.profileCount)",
+                    "conflicts": "\(state.preview.conflicts.count)",
+                    "strategy": "\(conflictStrategy)"
                 ]
             ))
             statusMessage = localization.status(
-                "Imported \(preview.profileCount) profiles.",
-                chinese: "已导入 \(preview.profileCount) 个配置。"
+                "Imported \(state.preview.profileCount) profiles.",
+                chinese: "已导入 \(state.preview.profileCount) 个配置。"
             )
         } catch {
             statusMessage = error.localizedDescription
@@ -1244,28 +1554,6 @@ struct ProfilesContentView: View {
 
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode(ProfileBackupDocument.self, from: data)
-    }
-
-    private func confirmImport(preview: ProfileImportPreview) -> Bool {
-        let alert = NSAlert()
-        alert.messageText = localization.status(
-            "Import \(preview.profileCount) profiles?",
-            chinese: "导入 \(preview.profileCount) 个配置？"
-        )
-        alert.informativeText = [
-            localization.status(
-                "Profiles: \(preview.profileNames.joined(separator: ", "))",
-                chinese: "配置：\(preview.profileNames.joined(separator: ", "))"
-            ),
-            localization.status("Conflicts: \(preview.conflicts.count)", chinese: "冲突：\(preview.conflicts.count)"),
-            localization.status(
-                "Matching current setup: \(preview.matchingStatuses.filter(\.matchesCurrentDisplaySetup).count)",
-                chinese: "匹配当前组合：\(preview.matchingStatuses.filter(\.matchesCurrentDisplaySetup).count)"
-            )
-        ].joined(separator: "\n")
-        alert.addButton(withTitle: localization.text(.importProfiles))
-        alert.addButton(withTitle: localization.status("Cancel", chinese: "取消"))
-        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private func recordActivity(_ entry: ActivityLogEntry) {
@@ -1385,6 +1673,8 @@ struct ProfileDetailView: View {
 struct ActivityLogPageView: View {
     @EnvironmentObject private var localization: LocalizationController
     @State private var activityLog = ActivityLogStoreDocument()
+    @State private var selectedEntryID: ActivityLogEntry.ID?
+    @State private var filter = ActivityLogFilter.all
     @State private var statusMessage = ""
 
     var body: some View {
@@ -1403,7 +1693,17 @@ struct ActivityLogPageView: View {
                 }
             }
 
-            if activityLog.entries.isEmpty {
+            Picker(localization.text(.activityLog), selection: $filter) {
+                ForEach(ActivityLogFilter.allCases, id: \.self) { filter in
+                    Text(title(for: filter)).tag(filter)
+                }
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: filter) { _ in
+                selectedEntryID = filteredEntries.first?.id
+            }
+
+            if filteredEntries.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "list.bullet.rectangle")
                         .font(.system(size: 36))
@@ -1414,21 +1714,43 @@ struct ActivityLogPageView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(activityLog.entries.suffix(50).reversed()) { entry in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(ActivityLogRenderer.title(for: entry, language: localization.preference))
-                            .fontWeight(.medium)
-                        Text(ActivityLogRenderer.details(for: entry))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(3)
+                HStack(spacing: 16) {
+                    List(selection: $selectedEntryID) {
+                        ForEach(filteredEntries) { entry in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(ActivityLogRenderer.title(for: entry, language: localization.preference))
+                                    .fontWeight(.medium)
+                                Text(entry.timestamp.formatted(date: .abbreviated, time: .standard))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(ActivityLogRenderer.summary(for: entry, language: localization.preference))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
+                            .padding(.vertical, 4)
+                            .tag(entry.id)
+                        }
                     }
+                    .frame(minWidth: 280)
+
+                    Divider()
+
+                    activityDetail
+                        .frame(minWidth: 300, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
-            if !statusMessage.isEmpty {
-                Text(statusMessage)
-                    .foregroundStyle(.secondary)
+            HStack {
+                Button(localization.text(.copyDiagnosticExport)) {
+                    copyDiagnosticExport()
+                }
+
+                if !statusMessage.isEmpty {
+                    Text(statusMessage)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .padding(24)
@@ -1437,40 +1759,153 @@ struct ActivityLogPageView: View {
         }
     }
 
+    @ViewBuilder
+    private var activityDetail: some View {
+        if let selectedEntry {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(ActivityLogRenderer.title(for: selectedEntry, language: localization.preference))
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    Text(selectedEntry.timestamp.formatted(date: .complete, time: .standard))
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(ActivityLogRenderer.summary(for: selectedEntry, language: localization.preference))
+                    .foregroundStyle(.secondary)
+
+                ScrollView {
+                    Text(ActivityLogRenderer.copyableDiagnostics(for: selectedEntry))
+                        .font(.system(.body, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack {
+                    Button(localization.text(.copyEntry)) {
+                        copy(ActivityLogRenderer.copyableDiagnostics(for: selectedEntry))
+                    }
+                    Button(localization.text(.copyDiagnosticExport)) {
+                        copyDiagnosticExport()
+                    }
+                }
+            }
+        } else {
+            VStack(spacing: 10) {
+                Image(systemName: "text.magnifyingglass")
+                    .font(.system(size: 32))
+                    .foregroundStyle(.secondary)
+                Text(localization.text(.noEntrySelected))
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private var filteredEntries: [ActivityLogEntry] {
+        ActivityLogQuery.entries(activityLog.entries, filter: filter)
+    }
+
+    private var selectedEntry: ActivityLogEntry? {
+        filteredEntries.first { $0.id == selectedEntryID } ?? filteredEntries.first
+    }
+
     private func loadActivityLog() {
         do {
             activityLog = try DisplayRecallStore.live().loadActivityLog()
+            selectedEntryID = filteredEntries.first?.id
         } catch {
             statusMessage = error.localizedDescription
         }
     }
+
+    private func title(for filter: ActivityLogFilter) -> String {
+        switch filter {
+        case .all:
+            localization.text(.allActivity)
+        case .applies:
+            localization.text(.applyEvents)
+        case .automation:
+            localization.text(.automationEvents)
+        case .errors:
+            localization.text(.errorEvents)
+        }
+    }
+
+    private func copyDiagnosticExport() {
+        let backend = BackendSnapshot(
+            path: DisplayplacerBackend.bundledExecutableURL()?.path ?? "Backends",
+            version: DisplayplacerBackend.bundledMetadata.version,
+            source: DisplayplacerBackend.bundledMetadata.source
+        )
+        let recentErrors = activityLog.entries
+            .suffix(20)
+            .map(\.stderr)
+            .filter { !$0.isEmpty }
+        let export = DiagnosticExporter.export(
+            logs: activityLog.entries,
+            backend: backend,
+            recentErrors: recentErrors
+        )
+        copy("\(export.summary)\n\n\(export.json)")
+    }
+
+    private func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        statusMessage = localization.status("Copied.", chinese: "已复制。")
+    }
 }
 
 struct AboutPageView: View {
+    @Environment(\.openURL) private var openURL
     @EnvironmentObject private var localization: LocalizationController
     private let catalog = AcknowledgementsCatalog.current()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 4) {
+                Text(localization.text(.about))
+                    .font(.largeTitle)
+                    .fontWeight(.semibold)
                 Text(AboutMetadata.current().displayString)
                     .font(.title2)
                     .fontWeight(.semibold)
+                Text(localization.status(
+                    "Independent companion for displayplacer.",
+                    chinese: "displayplacer 的独立伴随工具。"
+                ))
+                .foregroundStyle(.secondary)
                 Text(catalog.independenceNotice)
                     .foregroundStyle(.secondary)
             }
 
+            HStack {
+                Button(localization.text(.checkForUpdates)) {
+                    openURL(ReleaseConfiguration.production().sparklePolicy.feedURL)
+                }
+                Button(localization.text(.openProject)) {
+                    openURL(URL(string: "https://github.com/wbbb/display-recall")!)
+                }
+            }
+
             Divider()
 
-            Text(localization.text(.acknowledgements))
-                .font(.headline)
+            VStack(alignment: .leading, spacing: 10) {
+                Text(localization.text(.acknowledgements))
+                    .font(.headline)
 
-            ForEach(catalog.items) { item in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(item.name) \(item.version)")
-                        .fontWeight(.medium)
-                    Text("\(item.licenseName) - \(item.modificationStatus.title)")
-                        .foregroundStyle(.secondary)
+                ForEach(catalog.items) { item in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(item.name) \(item.version)")
+                            .fontWeight(.medium)
+                        Text("\(item.licenseName) - \(item.modificationStatus.title)")
+                            .foregroundStyle(.secondary)
+                        Button(localization.text(.openProject)) {
+                            openURL(item.projectURL)
+                        }
+                    }
                 }
             }
 
@@ -1487,26 +1922,11 @@ struct SettingsView: View {
     @State private var settings = AppSettings()
     @State private var activityLog = ActivityLogStoreDocument()
     @State private var statusMessage = ""
+    @State private var showsAdvancedBackend = false
 
     var body: some View {
         Form {
-            Section(localization.text(.backend)) {
-                LabeledContent(localization.text(.source), value: "Bundled")
-                LabeledContent("displayplacer", value: DisplayplacerBackend.bundledMetadata.version)
-                LabeledContent(localization.text(.architecture), value: DisplayplacerBackendArchitecture.current.rawValue)
-                TextField(localization.text(.customBackendPath), text: Binding(
-                    get: { settings.backendSelection.customPath ?? "" },
-                    set: { newValue in
-                        settings.backendSelection = BackendSelection(
-                            source: newValue.isEmpty ? .bundled : .custom(path: newValue),
-                            customPath: newValue.isEmpty ? nil : newValue
-                        )
-                        saveSettings()
-                    }
-                ))
-            }
-
-            Section(localization.text(.automation)) {
+            Section(localization.text(.general)) {
                 Toggle(localization.text(.launchAtLogin), isOn: Binding(
                     get: { settings.launchAtLogin },
                     set: { newValue in
@@ -1516,22 +1936,6 @@ struct SettingsView: View {
                     }
                 ))
 
-                Toggle(localization.text(.automaticApply), isOn: Binding(
-                    get: { settings.automaticApplyEnabled },
-                    set: { settings.automaticApplyEnabled = $0; saveSettings() }
-                ))
-
-                Stepper(
-                    localization.countdownLabel(seconds: settings.automaticApplyCountdownSeconds),
-                    value: Binding(
-                        get: { settings.automaticApplyCountdownSeconds },
-                        set: { settings.automaticApplyCountdownSeconds = $0; saveSettings() }
-                    ),
-                    in: 1...30
-                )
-            }
-
-            Section(localization.text(.appearance)) {
                 Toggle(localization.text(.showDockIcon), isOn: $showDockIcon)
                     .onChange(of: showDockIcon) { newValue in
                         settings.showDockIcon = newValue
@@ -1553,13 +1957,59 @@ struct SettingsView: View {
                 }
             }
 
+            Section(localization.text(.automation)) {
+                Toggle(localization.text(.automaticApply), isOn: Binding(
+                    get: { settings.automaticApplyEnabled },
+                    set: { settings.automaticApplyEnabled = $0; saveSettings() }
+                ))
+
+                Stepper(
+                    localization.countdownLabel(seconds: settings.automaticApplyCountdownSeconds),
+                    value: Binding(
+                        get: { settings.automaticApplyCountdownSeconds },
+                        set: { settings.automaticApplyCountdownSeconds = $0; saveSettings() }
+                    ),
+                    in: 1...30
+                )
+            }
+
+            Section(localization.text(.backend)) {
+                LabeledContent(localization.text(.source), value: "Bundled")
+                LabeledContent("displayplacer", value: DisplayplacerBackend.bundledMetadata.version)
+                LabeledContent(localization.text(.architecture), value: DisplayplacerBackendArchitecture.current.rawValue)
+
+                DisclosureGroup(
+                    localization.text(.advancedBackend),
+                    isExpanded: $showsAdvancedBackend
+                ) {
+                    Text(localization.status(
+                        "Use only when testing another displayplacer build.",
+                        chinese: "仅在测试其他 displayplacer 构建时使用。"
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                    TextField(localization.text(.customBackendPath), text: Binding(
+                        get: { settings.backendSelection.customPath ?? "" },
+                        set: { newValue in
+                            settings.backendSelection = BackendSelection(
+                                source: newValue.isEmpty ? .bundled : .custom(path: newValue),
+                                customPath: newValue.isEmpty ? nil : newValue
+                            )
+                            saveSettings()
+                        }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                }
+            }
+
             Section(localization.text(.shortcuts)) {
                 Text(localization.text(.shortcutsDescription))
                     .foregroundStyle(.secondary)
                 Text(localization.configuredShortcuts(
                     settings.shortcutBindings.filter { $0.keyEquivalent?.isEmpty == false }.count
                 ))
-                    .foregroundStyle(.secondary)
+                .foregroundStyle(.secondary)
             }
 
             Section(localization.text(.updates)) {
@@ -1571,51 +2021,18 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section(localization.text(.acknowledgements)) {
-                Text(AcknowledgementsCatalog.current().independenceNotice)
-                    .foregroundStyle(.secondary)
-
-                ForEach(AcknowledgementsCatalog.current().items) { item in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(item.name) \(item.version)")
-                            .fontWeight(.medium)
-                        Text("\(item.licenseName) - \(item.modificationStatus.title)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Button(localization.text(.openProject)) {
-                            openURL(item.projectURL)
-                        }
-                    }
+            Section(localization.text(.diagnostics)) {
+                Button(localization.text(.openActivityLog)) {
+                    MainWindowRouter.shared.select(.activityLog)
                 }
-            }
-
-            Section(localization.text(.activityLog)) {
-                if recentActivityEntries.isEmpty {
-                    Text(localization.text(.noRecentActivity))
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(recentActivityEntries) { entry in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(ActivityLogRenderer.title(for: entry, language: localization.preference))
-                                .fontWeight(.medium)
-                            Text(ActivityLogRenderer.summary(for: entry, language: localization.preference))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Button(localization.text(.copyDetails)) {
-                                copy(ActivityLogRenderer.copyableDiagnostics(for: entry))
-                            }
-                        }
-                    }
+                Button(localization.text(.copyDiagnosticExport)) {
+                    copyDiagnosticExport()
                 }
-
-                HStack {
-                    Button(localization.text(.refresh)) {
-                        loadActivityLog()
-                    }
-                    Button(localization.text(.copyDiagnosticExport)) {
-                        copyDiagnosticExport()
-                    }
-                }
+                Text(localization.status(
+                    "Logs stay in Activity Log; Settings only exposes diagnostic actions.",
+                    chinese: "日志保留在活动日志页；设置页只提供诊断操作。"
+                ))
+                .foregroundStyle(.secondary)
             }
 
             if !statusMessage.isEmpty {
@@ -1627,15 +2044,11 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .frame(width: 420)
+        .frame(maxWidth: 620)
         .task {
             loadSettings()
             loadActivityLog()
         }
-    }
-
-    private var recentActivityEntries: [ActivityLogEntry] {
-        Array(activityLog.entries.suffix(5).reversed())
     }
 
     private func loadSettings() {

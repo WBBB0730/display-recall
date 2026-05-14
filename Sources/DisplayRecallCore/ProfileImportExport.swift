@@ -69,14 +69,31 @@ public struct ProfileImportPreview: Equatable, Sendable {
     public let matchingStatuses: [ImportMatchingStatus]
 }
 
+public struct ProfileExportPreview: Equatable, Sendable {
+    public let profileCount: Int
+    public let profileNames: [String]
+}
+
 public enum ProfileExporter {
+    public static func preview(
+        document: ProfileStoreDocument,
+        selection: ProfileExportSelection
+    ) -> ProfileExportPreview {
+        let profiles = selectedProfiles(in: document, selection: selection)
+
+        return ProfileExportPreview(
+            profileCount: profiles.count,
+            profileNames: profiles.map(\.name)
+        )
+    }
+
     public static func export(
         document: ProfileStoreDocument,
         settings: AppSettings?,
         selection: ProfileExportSelection
     ) -> ProfileBackupDocument {
-        let selectedIDs = selectedProfileIDs(in: document, selection: selection)
-        let selectedProfiles = document.profiles.filter { selectedIDs.contains($0.id) }
+        let selectedProfiles = selectedProfiles(in: document, selection: selection)
+        let selectedIDs = Set(selectedProfiles.map(\.id))
         let selectedRules = document.automaticDefaultRules.filter { selectedIDs.contains($0.profileId) }
 
         return ProfileBackupDocument(
@@ -98,6 +115,14 @@ public enum ProfileExporter {
         case let .multiple(ids):
             Set(ids)
         }
+    }
+
+    private static func selectedProfiles(
+        in document: ProfileStoreDocument,
+        selection: ProfileExportSelection
+    ) -> [DisplayProfile] {
+        let selectedIDs = selectedProfileIDs(in: document, selection: selection)
+        return document.profiles.filter { selectedIDs.contains($0.id) }
     }
 }
 

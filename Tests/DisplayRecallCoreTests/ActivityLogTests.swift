@@ -44,6 +44,41 @@ final class ActivityLogTests: XCTestCase {
         }
     }
 
+    func testActivityLogQueryFiltersEntriesInReverseChronologicalOrder() {
+        let oldApply = ActivityLogEntry(
+            type: .profileApplied,
+            timestamp: Date(timeIntervalSince1970: 100),
+            exitCode: 0
+        )
+        let recentAutomation = ActivityLogEntry(
+            type: .displaySetChanged,
+            timestamp: Date(timeIntervalSince1970: 300)
+        )
+        let recentError = ActivityLogEntry(
+            type: .profileApplyFailed,
+            timestamp: Date(timeIntervalSince1970: 200),
+            stderr: "failed",
+            exitCode: 1
+        )
+        let entries = [oldApply, recentAutomation, recentError]
+
+        XCTAssertEqual(ActivityLogQuery.entries(entries, filter: .all).map(\.id), [
+            recentAutomation.id,
+            recentError.id,
+            oldApply.id
+        ])
+        XCTAssertEqual(ActivityLogQuery.entries(entries, filter: .applies).map(\.id), [
+            recentError.id,
+            oldApply.id
+        ])
+        XCTAssertEqual(ActivityLogQuery.entries(entries, filter: .automation).map(\.id), [
+            recentAutomation.id
+        ])
+        XCTAssertEqual(ActivityLogQuery.entries(entries, filter: .errors).map(\.id), [
+            recentError.id
+        ])
+    }
+
     func testDiagnosticExportIsSeparateFromBackupAndContainsLogsBackendAndErrors() throws {
         let entry = ActivityLogEntry(type: .profileApplyFailed, stderr: "boom")
         let export = DiagnosticExporter.export(

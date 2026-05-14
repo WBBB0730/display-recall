@@ -99,6 +99,44 @@ public struct ActivityLogStoreDocument: Equatable, Sendable, Codable {
     }
 }
 
+public enum ActivityLogFilter: String, CaseIterable, Equatable, Sendable {
+    case all
+    case applies
+    case automation
+    case errors
+}
+
+public enum ActivityLogQuery {
+    public static func entries(
+        _ entries: [ActivityLogEntry],
+        filter: ActivityLogFilter
+    ) -> [ActivityLogEntry] {
+        entries
+            .filter { entry in
+                switch filter {
+                case .all:
+                    true
+                case .applies:
+                    entry.type == .profileApplied
+                        || entry.type == .profileApplyFailed
+                        || entry.type == .hotkeyApplied
+                        || entry.type == .automaticApplied
+                case .automation:
+                    entry.type == .displaySetChanged
+                        || entry.type == .matchingDecision
+                        || entry.type == .pendingCountdown
+                        || entry.type == .cancellation
+                        || entry.type == .automaticApplied
+                case .errors:
+                    entry.type == .profileApplyFailed
+                        || !entry.stderr.isEmpty
+                        || entry.exitCode.map { $0 != 0 } == true
+                }
+            }
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+}
+
 public enum ActivityLogRenderer {
     public static func title(for entry: ActivityLogEntry, language: LanguagePreference) -> String {
         localizedText(for: entry.type, language: language).title

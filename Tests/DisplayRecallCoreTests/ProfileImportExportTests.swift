@@ -41,6 +41,21 @@ final class ProfileImportExportTests: XCTestCase {
         XCTAssertEqual(multiple.profiles.map(\.name), ["Home", "Travel"])
     }
 
+    func testExportPreviewShowsCountAndNamesForSelectedProfiles() {
+        let home = DisplayProfile.fixture(id: Self.homeID, name: "Home")
+        let office = DisplayProfile.fixture(id: Self.officeID, name: "Office")
+        let travel = DisplayProfile.fixture(id: Self.travelID, name: "Travel")
+        let document = ProfileStoreDocument(profiles: [home, office, travel])
+
+        let preview = ProfileExporter.preview(
+            document: document,
+            selection: .multiple([travel.id, home.id])
+        )
+
+        XCTAssertEqual(preview.profileCount, 2)
+        XCTAssertEqual(preview.profileNames, ["Home", "Travel"])
+    }
+
     func testImportPreviewShowsCountNamesConflictsAndMatchingStatus() throws {
         let local = DisplayProfile.fixture(id: Self.homeID, name: "Home")
         let importedHome = DisplayProfile.fixture(id: Self.officeID, name: "Home")

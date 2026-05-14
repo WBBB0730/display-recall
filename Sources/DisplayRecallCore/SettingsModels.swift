@@ -34,8 +34,11 @@ public enum AppLocalizationKey: String, CaseIterable, Equatable, Sendable {
     case about
     case acknowledgements
     case activityLog
+    case advancedBackend
     case advancedCommand
+    case allActivity
     case apply
+    case applyEvents
     case applyNow
     case appearance
     case architecture
@@ -43,33 +46,50 @@ public enum AppLocalizationKey: String, CaseIterable, Equatable, Sendable {
     case automaticDefault
     case automaticDefaultForSetup
     case automation
+    case automationEvents
     case backend
     case backendReady
     case backendVerificationFailed
+    case allProfiles
+    case cancel
     case checkForUpdates
+    case chooseExportScope
     case clearDefault
+    case conflicts
     case copyDetails
     case copyDiagnosticExport
+    case copyEntry
     case createProfile
+    case currentProfile
     case customBackendPath
     case currentDisplaySetup
     case dangerZone
     case deleteProfile
     case differentSetup
+    case diagnostics
     case displayRecall
     case displayRecallSetupDescription
     case displaySetup
     case export
+    case exportProfiles
+    case exportScope
     case exportSelected
+    case errorEvents
     case fingerprint
+    case general
     case importProfiles
+    case importConflictStrategy
+    case importPreview
+    case keepBoth
     case language
     case launchAtLogin
     case highRisk
+    case matchingCurrentSetup
     case matchesCurrentSetup
     case needsRebind
     case noMatchingProfiles
     case name
+    case noEntrySelected
     case noProfileSelected
     case noProfileSelectedDescription
     case noRecentActivity
@@ -80,20 +100,24 @@ public enum AppLocalizationKey: String, CaseIterable, Equatable, Sendable {
     case openProject
     case otherProfiles
     case profile
+    case profileCount
     case profileName
     case profiles
     case quitDisplayRecall
     case rebindToCurrentDisplays
     case refresh
+    case replaceExisting
     case recentActivityDescription
     case saveCommand
     case saveCurrentLayout
     case searchProfiles
+    case selectedProfiles
     case settings
     case setDefault
     case shortcuts
     case shortcutsDescription
     case showDockIcon
+    case skipConflicts
     case source
     case status
     case stop
@@ -135,8 +159,11 @@ public enum AppLocalization {
             .about: "About",
             .acknowledgements: "Acknowledgements",
             .activityLog: "Activity Log",
+            .advancedBackend: "Advanced Backend",
             .advancedCommand: "Advanced Command",
+            .allActivity: "All",
             .apply: "Apply",
+            .applyEvents: "Applies",
             .applyNow: "Apply Now",
             .appearance: "Appearance",
             .architecture: "Architecture",
@@ -144,33 +171,50 @@ public enum AppLocalization {
             .automaticDefault: "Automatic default",
             .automaticDefaultForSetup: "Automatic default for this setup",
             .automation: "Automation",
+            .automationEvents: "Automation",
             .backend: "Backend",
             .backendReady: "displayplacer is ready",
             .backendVerificationFailed: "displayplacer verification failed",
+            .allProfiles: "All profiles",
+            .cancel: "Cancel",
             .checkForUpdates: "Check for Updates",
+            .chooseExportScope: "Choose what to include before saving the backup file.",
             .clearDefault: "Clear Default",
+            .conflicts: "Conflicts",
             .copyDetails: "Copy Details",
             .copyDiagnosticExport: "Copy Diagnostic Export",
+            .copyEntry: "Copy Entry",
             .createProfile: "Create Profile",
+            .currentProfile: "Current profile",
             .customBackendPath: "Custom backend path",
             .currentDisplaySetup: "Current Display Setup",
             .dangerZone: "Danger Zone",
             .deleteProfile: "Delete Profile",
             .differentSetup: "Different setup",
+            .diagnostics: "Diagnostics",
             .displayRecall: "Display Recall",
             .displayRecallSetupDescription: "Display Recall will verify its bundled displayplacer backend, then save your current display layout as the first profile.",
             .displaySetup: "Display Setup",
             .export: "Export",
+            .exportProfiles: "Export Profiles",
+            .exportScope: "Export scope",
             .exportSelected: "Export Selected",
+            .errorEvents: "Errors",
             .fingerprint: "Fingerprint",
+            .general: "General",
             .importProfiles: "Import",
+            .importConflictStrategy: "Conflict strategy",
+            .importPreview: "Import Preview",
+            .keepBoth: "Keep Both",
             .language: "Language",
             .launchAtLogin: "Launch at Login",
             .highRisk: "High risk",
+            .matchingCurrentSetup: "Matching current setup",
             .matchesCurrentSetup: "Matches current setup",
             .needsRebind: "Needs rebind",
             .noMatchingProfiles: "No matching profiles",
             .name: "Name",
+            .noEntrySelected: "No Entry Selected",
             .noProfileSelected: "No Profile Selected",
             .noProfileSelectedDescription: "Save your current display layout or select a profile.",
             .noRecentActivity: "No recent activity",
@@ -181,20 +225,24 @@ public enum AppLocalization {
             .openProject: "Open Project",
             .otherProfiles: "Other Profiles",
             .profile: "Profile",
+            .profileCount: "Profile count",
             .profileName: "Profile name",
             .profiles: "Profiles",
             .quitDisplayRecall: "Quit Display Recall",
             .rebindToCurrentDisplays: "Rebind to Current Displays",
             .refresh: "Refresh",
+            .replaceExisting: "Replace Existing",
             .recentActivityDescription: "Recent automation, apply, import, and diagnostic events.",
             .saveCommand: "Save Command",
             .saveCurrentLayout: "Save Current Layout",
             .searchProfiles: "Search profiles",
+            .selectedProfiles: "Selected profiles",
             .settings: "Settings",
             .setDefault: "Set Default",
             .shortcuts: "Shortcuts",
             .shortcutsDescription: "Shortcuts are optional. Permission is requested only after a shortcut is configured.",
             .showDockIcon: "Show Dock icon",
+            .skipConflicts: "Skip Conflicts",
             .source: "Source",
             .status: "Status",
             .stop: "Stop",
@@ -208,8 +256,11 @@ public enum AppLocalization {
             .about: "关于",
             .acknowledgements: "致谢",
             .activityLog: "活动日志",
+            .advancedBackend: "高级后端",
             .advancedCommand: "高级命令",
+            .allActivity: "全部",
             .apply: "应用",
+            .applyEvents: "应用",
             .applyNow: "立即应用",
             .appearance: "外观",
             .architecture: "架构",
@@ -217,33 +268,50 @@ public enum AppLocalization {
             .automaticDefault: "自动默认",
             .automaticDefaultForSetup: "此显示器组合的自动默认",
             .automation: "自动化",
+            .automationEvents: "自动化",
             .backend: "后端",
             .backendReady: "displayplacer 已就绪",
             .backendVerificationFailed: "displayplacer 验证失败",
+            .allProfiles: "所有配置",
+            .cancel: "取消",
             .checkForUpdates: "检查更新",
+            .chooseExportScope: "先选择要包含的配置，再保存备份文件。",
             .clearDefault: "清除默认",
+            .conflicts: "冲突",
             .copyDetails: "复制详情",
             .copyDiagnosticExport: "复制诊断导出",
+            .copyEntry: "复制条目",
             .createProfile: "创建配置",
+            .currentProfile: "当前配置",
             .customBackendPath: "自定义后端路径",
             .currentDisplaySetup: "当前显示器组合",
             .dangerZone: "危险区域",
             .deleteProfile: "删除配置",
             .differentSetup: "不同组合",
+            .diagnostics: "诊断",
             .displayRecall: "Display Recall",
             .displayRecallSetupDescription: "Display Recall 会验证内置 displayplacer 后端，然后把当前显示器布局保存为第一个配置。",
             .displaySetup: "显示器组合",
             .export: "导出",
+            .exportProfiles: "导出配置",
+            .exportScope: "导出范围",
             .exportSelected: "导出所选",
+            .errorEvents: "错误",
             .fingerprint: "指纹",
+            .general: "通用",
             .importProfiles: "导入",
+            .importConflictStrategy: "冲突策略",
+            .importPreview: "导入预览",
+            .keepBoth: "保留两者",
             .language: "语言",
             .launchAtLogin: "登录时启动",
             .highRisk: "高风险",
+            .matchingCurrentSetup: "匹配当前组合",
             .matchesCurrentSetup: "匹配当前组合",
             .needsRebind: "需要重新绑定",
             .noMatchingProfiles: "没有匹配的配置",
             .name: "名称",
+            .noEntrySelected: "未选择条目",
             .noProfileSelected: "未选择配置",
             .noProfileSelectedDescription: "保存当前显示器布局，或选择一个配置。",
             .noRecentActivity: "暂无最近活动",
@@ -254,20 +322,24 @@ public enum AppLocalization {
             .openProject: "打开项目",
             .otherProfiles: "其他配置",
             .profile: "配置",
+            .profileCount: "配置数量",
             .profileName: "配置名称",
             .profiles: "配置",
             .quitDisplayRecall: "退出 Display Recall",
             .rebindToCurrentDisplays: "重新绑定到当前显示器",
             .refresh: "刷新",
+            .replaceExisting: "替换现有",
             .recentActivityDescription: "最近的自动化、应用、导入和诊断事件。",
             .saveCommand: "保存命令",
             .saveCurrentLayout: "保存当前布局",
             .searchProfiles: "搜索配置",
+            .selectedProfiles: "所选配置",
             .settings: "设置",
             .setDefault: "设为默认",
             .shortcuts: "快捷键",
             .shortcutsDescription: "快捷键是可选的。只有配置快捷键后才会请求权限。",
             .showDockIcon: "显示 Dock 图标",
+            .skipConflicts: "跳过冲突",
             .source: "来源",
             .status: "状态",
             .stop: "停止",
