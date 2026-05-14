@@ -20,6 +20,19 @@ final class AutomaticApplyCoordinatorTests: XCTestCase {
         XCTAssertEqual(state, .pending(profile: profile, remainingSeconds: 5, trigger: .displayChange))
     }
 
+    func testPendingPanelPresentationHasOnlyApplyNowAndStop() throws {
+        let profile = DisplayProfile.fixture(name: "Home")
+        let presentation = try PendingApplyPanelPresentation(
+            state: .pending(profile: profile, remainingSeconds: 5, trigger: .displayChange)
+        )
+
+        XCTAssertEqual(presentation.profileName, "Home")
+        XCTAssertEqual(presentation.remainingSeconds, 5)
+        XCTAssertEqual(presentation.triggerTitle, "Display changed")
+        XCTAssertEqual(presentation.actions, [.applyNow, .stop])
+        XCTAssertFalse(presentation.actions.contains(.pause))
+    }
+
     func testNoDefaultDoesNotGuessWhenMultipleProfilesMatch() {
         let first = DisplayProfile.fixture(name: "Work")
         let second = DisplayProfile.fixture(name: "Meeting")

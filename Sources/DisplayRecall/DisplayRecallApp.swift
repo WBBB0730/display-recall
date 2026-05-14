@@ -12,7 +12,6 @@ struct DisplayRecallApp: App {
         MenuBarExtra(AppConfiguration.displayName, systemImage: "display.2") {
             MenuBarContentView()
         }
-        .menuBarExtraStyle(.window)
 
         WindowGroup(AppWindow.main.title, id: AppWindow.main.id) {
             MainWindowView()
@@ -78,12 +77,111 @@ final class MainWindowRouter: ObservableObject {
     }
 }
 
+@MainActor
+final class PendingApplyPanelController {
+    static let shared = PendingApplyPanelController()
+
+    private var panel: NSPanel?
+
+    private init() {}
+
+    func show(
+        profile: DisplayProfile,
+        remainingSeconds: Int,
+        trigger: AutomaticApplyTrigger,
+        applyNow: @escaping () -> Void,
+        stop: @escaping () -> Void
+    ) {
+        let rootView = PendingApplyPanelView(
+            profileName: profile.name,
+            remainingSeconds: remainingSeconds,
+            triggerTitle: trigger == .startup ? "Startup" : "Display changed",
+            applyNow: applyNow,
+            stop: stop
+        )
+
+        if panel == nil {
+            let panel = NSPanel(
+                contentRect: NSRect(x: 0, y: 0, width: 340, height: 150),
+                styleMask: [.titled, .nonactivatingPanel, .fullSizeContentView],
+                backing: .buffered,
+                defer: false
+            )
+            panel.isFloatingPanel = true
+            panel.level = .floating
+            panel.hidesOnDeactivate = false
+            panel.titleVisibility = .hidden
+            panel.titlebarAppearsTransparent = true
+            panel.isReleasedWhenClosed = false
+            self.panel = panel
+        }
+
+        panel?.contentView = NSHostingView(rootView: rootView)
+        positionPanel()
+        panel?.orderFrontRegardless()
+    }
+
+    func close() {
+        panel?.orderOut(nil)
+    }
+
+    private func positionPanel() {
+        guard let panel,
+              let screenFrame = NSScreen.main?.visibleFrame else {
+            return
+        }
+
+        let origin = NSPoint(
+            x: screenFrame.maxX - panel.frame.width - 18,
+            y: screenFrame.maxY - panel.frame.height - 18
+        )
+        panel.setFrameOrigin(origin)
+    }
+}
+
+struct PendingApplyPanelView: View {
+    let profileName: String
+    let remainingSeconds: Int
+    let triggerTitle: String
+    let applyNow: () -> Void
+    let stop: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "timer")
+                    .font(.title2)
+                    .foregroundStyle(.blue)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Applying \(profileName) in \(remainingSeconds)s")
+                        .font(.headline)
+                    Text(triggerTitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            ProgressView(value: Double(max(0, 5 - remainingSeconds)), total: 5)
+
+            HStack {
+                Spacer()
+                Button("Stop", action: stop)
+                Button("Apply Now", action: applyNow)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(16)
+        .frame(width: 340)
+    }
+}
+
 struct MenuBarContentView: View {
     @Environment(\.openWindow) private var openWindow
     @State private var document = ProfileStoreDocument()
     @State private var currentFingerprint: DisplaySetupFingerprint?
     @State private var automationStatus = AutomationStatus.enabled
     @State private var automaticCoordinator = AutomaticApplyCoordinator(countdownSeconds: 5)
+    @State private var pendingApplyTask: Task<Void, Never>?
     @State private var statusMessage = ""
 
     private var menuModel: MenuBarModel {
@@ -95,89 +193,19 @@ struct MenuBarContentView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: menuModel.iconState.systemImage)
-                VStack(alignment: .leading) {
-                    Text(AppConfiguration.displayName)
-                        .font(.headline)
-                    Text(menuModel.statusTitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Divider()
-
-            switch automaticCoordinator.state {
-            case let .pending(profile, remainingSeconds, trigger):
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Pending automatic apply", systemImage: "timer")
-                        .font(.headline)
-                    Text("\(remainingSeconds)s: \(profile.name)")
-                        .font(.caption)
-                    Text(trigger == .startup ? "Startup" : "Display change")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    HStack {
-                        Button("Apply Now") {
-                            Task {
-                                automaticCoordinator.state = .idle
-                                await apply(MenuBarProfileItem(
-                                    profile: profile,
-                                    currentFingerprint: currentFingerprint,
-                                    isAutomaticDefault: true
-                                ))
-                            }
-                        }
-                        Button("Stop") {
-                            automaticCoordinator.stopPendingApply()
-                        }
-                        Button("Pause") {
-                            automationStatus = .paused
-                            automaticCoordinator.pauseAutomation()
-                        }
-                    }
-                }
-                Divider()
-
-            case let .needsChoice(matchingProfiles):
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Choose a profile", systemImage: "questionmark.circle")
-                        .font(.headline)
-                    ForEach(matchingProfiles) { profile in
-                        Button(profile.name) {
-                            Task {
-                                await apply(MenuBarProfileItem(
-                                    profile: profile,
-                                    currentFingerprint: currentFingerprint,
-                                    isAutomaticDefault: false
-                                ))
-                            }
-                        }
-                    }
-                }
-                Divider()
-
-            case .idle:
-                EmptyView()
-            }
-
+        Group {
+            Text(menuModel.statusTitle)
             if !menuModel.matchingProfiles.isEmpty {
                 Text("Current Display Setup")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 ForEach(menuModel.matchingProfiles) { item in
                     profileButton(item)
                 }
             } else {
                 Text("No matching profiles")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             if !menuModel.otherProfiles.isEmpty {
-                DisclosureGroup("Other Profiles") {
+                Menu("Other Profiles") {
                     ForEach(menuModel.otherProfiles) { item in
                         profileButton(item)
                     }
@@ -190,14 +218,8 @@ struct MenuBarContentView: View {
                 }
             }
 
-            Button(automationStatus == .paused ? "Resume Automation" : "Pause Automation") {
-                automationStatus = automationStatus == .paused ? .enabled : .paused
-            }
-
             if !statusMessage.isEmpty {
                 Text(statusMessage)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             Divider()
@@ -210,14 +232,21 @@ struct MenuBarContentView: View {
                 openMainWindow(section: .settings)
             }
 
+            Toggle("Automatic Apply", isOn: Binding(
+                get: { automationStatus == .enabled },
+                set: { automationStatus = $0 ? .enabled : .paused }
+            ))
+
+            Button("Check for Updates") {
+                NSWorkspace.shared.open(ReleaseConfiguration.production().sparklePolicy.feedURL)
+            }
+
             Divider()
 
             Button(AppMenuAction.quit.title) {
                 NSApp.terminate(nil)
             }
         }
-        .padding(14)
-        .frame(width: 300)
         .task {
             await refreshCurrentSetup()
             loadProfiles()
@@ -323,6 +352,8 @@ struct MenuBarContentView: View {
     }
 
     private func scheduleAutomaticApply(trigger: AutomaticApplyTrigger) async {
+        pendingApplyTask?.cancel()
+        PendingApplyPanelController.shared.close()
         await refreshCurrentSetup()
         loadProfiles()
         guard let currentFingerprint else { return }
@@ -335,6 +366,7 @@ struct MenuBarContentView: View {
                 automationStatus: automationStatus
             )
             recordAutomaticDecision(state: state, trigger: trigger)
+            presentPendingPanelIfNeeded(state)
         case .startup:
             let state = automaticCoordinator.handleStartup(
                 document: document,
@@ -342,7 +374,112 @@ struct MenuBarContentView: View {
                 automationStatus: automationStatus
             )
             recordAutomaticDecision(state: state, trigger: trigger)
+            presentPendingPanelIfNeeded(state)
         }
+    }
+
+    private func presentPendingPanelIfNeeded(_ state: AutomaticApplyState) {
+        guard case let .pending(profile, remainingSeconds, trigger) = state else {
+            PendingApplyPanelController.shared.close()
+            return
+        }
+
+        pendingApplyTask?.cancel()
+        showPendingPanel(profile: profile, remainingSeconds: remainingSeconds, trigger: trigger)
+
+        pendingApplyTask = Task {
+            var remaining = remainingSeconds
+            while remaining > 0 && !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                remaining -= 1
+                await MainActor.run {
+                    if remaining > 0 {
+                        showPendingPanel(profile: profile, remainingSeconds: remaining, trigger: trigger)
+                    }
+                }
+            }
+
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run {
+                PendingApplyPanelController.shared.close()
+            }
+
+            do {
+                let freshFingerprint = try await rereadCurrentFingerprint(
+                    fallback: profile.displaySetupFingerprint
+                )
+                let selected = await MainActor.run {
+                    automaticCoordinator.state = .idle
+                    return automaticDefaultProfile(for: freshFingerprint)
+                }
+                if let selected {
+                    await apply(MenuBarProfileItem(
+                        profile: selected,
+                        currentFingerprint: selected.displaySetupFingerprint,
+                        isAutomaticDefault: true
+                    ))
+                }
+            } catch {
+                await MainActor.run {
+                    statusMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func showPendingPanel(
+        profile: DisplayProfile,
+        remainingSeconds: Int,
+        trigger: AutomaticApplyTrigger
+    ) {
+        PendingApplyPanelController.shared.show(
+            profile: profile,
+            remainingSeconds: remainingSeconds,
+            trigger: trigger,
+            applyNow: {
+                pendingApplyTask?.cancel()
+                PendingApplyPanelController.shared.close()
+                automaticCoordinator.state = .idle
+                Task {
+                    await apply(MenuBarProfileItem(
+                        profile: profile,
+                        currentFingerprint: currentFingerprint,
+                        isAutomaticDefault: true
+                    ))
+                }
+            },
+            stop: {
+                pendingApplyTask?.cancel()
+                automaticCoordinator.stopPendingApply()
+                PendingApplyPanelController.shared.close()
+                recordActivity(ActivityLogEntry(
+                    type: .cancellation,
+                    trigger: trigger == .startup ? .startup : .automatic,
+                    profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                    metadata: ["reason": "userStoppedPendingApply"]
+                ))
+            }
+        )
+    }
+
+    private func rereadCurrentFingerprint(
+        fallback: DisplaySetupFingerprint
+    ) async throws -> DisplaySetupFingerprint {
+        let service = try FirstRunSetupService.live()
+        guard case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
+            return fallback
+        }
+        return layout.displaySetupFingerprint
+    }
+
+    private func automaticDefaultProfile(for fingerprint: DisplaySetupFingerprint) -> DisplayProfile? {
+        guard let rule = document.automaticDefaultRules.first(where: {
+            $0.displaySetupFingerprint == fingerprint
+        }) else {
+            return nil
+        }
+        return document.profiles.first { $0.id == rule.profileId }
     }
 
     private func recordAutomaticDecision(state: AutomaticApplyState, trigger: AutomaticApplyTrigger) {

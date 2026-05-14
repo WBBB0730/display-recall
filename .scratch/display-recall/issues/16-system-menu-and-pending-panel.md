@@ -12,16 +12,16 @@ Convert the normal menu bar experience into a true system-style menu that contai
 
 ## Acceptance criteria
 
-- [ ] Normal menu bar UI uses a system menu style instead of a custom popover-style panel.
-- [ ] The menu contains current matching profiles, an Other Profiles submenu, Save Current Layout, Open Display Recall, Settings, Automatic Apply toggle, Check for Updates, and Quit.
-- [ ] Menu profile items apply profiles directly and show automatic-default/high-risk state in a compact menu-appropriate way.
-- [ ] The menu does not contain Activity Log, import/export, acknowledgements, or long explanatory content.
-- [ ] Automatic-apply pending state opens a separate non-blocking floating panel proactively without requiring a menu click.
-- [ ] Pending panel shows trigger, profile name, countdown, Apply Now, and Stop.
-- [ ] Pending panel does not include Pause.
-- [ ] Stop cancels only the current pending apply and does not disable global automatic apply.
-- [ ] A new display change during countdown cancels/replaces the current pending panel after rereading display state.
-- [ ] Existing tests continue to pass, and new tests cover pending panel state transitions where practical.
+- [x] Normal menu bar UI uses a system menu style instead of a custom popover-style panel.
+- [x] The menu contains current matching profiles, an Other Profiles submenu, Save Current Layout, Open Display Recall, Settings, Automatic Apply toggle, Check for Updates, and Quit.
+- [x] Menu profile items apply profiles directly and show automatic-default/high-risk state in a compact menu-appropriate way.
+- [x] The menu does not contain Activity Log, import/export, acknowledgements, or long explanatory content.
+- [x] Automatic-apply pending state opens a separate non-blocking floating panel proactively without requiring a menu click.
+- [x] Pending panel shows trigger, profile name, countdown, Apply Now, and Stop.
+- [x] Pending panel does not include Pause.
+- [x] Stop cancels only the current pending apply and does not disable global automatic apply.
+- [x] A new display change during countdown cancels/replaces the current pending panel after rereading display state.
+- [x] Existing tests continue to pass, and new tests cover pending panel state transitions where practical.
 
 ## Blocked by
 

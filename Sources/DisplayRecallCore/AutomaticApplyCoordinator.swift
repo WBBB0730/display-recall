@@ -11,6 +11,39 @@ public enum AutomaticApplyState: Equatable, Sendable {
     case needsChoice(matchingProfiles: [DisplayProfile])
 }
 
+public enum PendingApplyPanelAction: Equatable, Sendable {
+    case applyNow
+    case stop
+    case pause
+}
+
+public enum PendingApplyPanelError: Error, Equatable, Sendable {
+    case notPending
+}
+
+public struct PendingApplyPanelPresentation: Equatable, Sendable {
+    public let profileName: String
+    public let remainingSeconds: Int
+    public let triggerTitle: String
+    public let actions: [PendingApplyPanelAction]
+
+    public init(state: AutomaticApplyState) throws {
+        guard case let .pending(profile, remainingSeconds, trigger) = state else {
+            throw PendingApplyPanelError.notPending
+        }
+
+        self.profileName = profile.name
+        self.remainingSeconds = remainingSeconds
+        self.triggerTitle = switch trigger {
+        case .displayChange:
+            "Display changed"
+        case .startup:
+            "Startup"
+        }
+        self.actions = [.applyNow, .stop]
+    }
+}
+
 public struct AutomaticApplyCoordinator: Sendable {
     public static let startupStabilitySeconds = 10
 
