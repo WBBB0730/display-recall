@@ -20,7 +20,10 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "DisplayRecallCore"
+            name: "DisplayRecallCore",
+            resources: [
+                .copy("Resources/Backends")
+            ]
         ),
         .executableTarget(
             name: "DisplayRecall",

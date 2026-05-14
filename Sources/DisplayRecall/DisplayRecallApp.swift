@@ -104,6 +104,12 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("Backend") {
+                LabeledContent("Source", value: "Bundled")
+                LabeledContent("displayplacer", value: DisplayplacerBackend.bundledMetadata.version)
+                LabeledContent("Architecture", value: DisplayplacerBackendArchitecture.current.rawValue)
+            }
+
             Toggle("Show Dock icon", isOn: $showDockIcon)
                 .onChange(of: showDockIcon) { newValue in
                     DockIconController.apply(showDockIcon: newValue)

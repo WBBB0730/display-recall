@@ -12,13 +12,13 @@ Make Display Recall use a bundled fixed-version `displayplacer` backend by defau
 
 ## Acceptance criteria
 
-- [ ] The app has a backend runner that can execute the bundled `displayplacer`.
-- [ ] The backend runner can run `list` and capture stdout, stderr, exit code, backend path, and backend architecture.
-- [ ] Apple Silicon and Intel backend selection is handled automatically or through a Universal backend.
-- [ ] Backend version and backend source are available to the app for display/logging.
-- [ ] The build/release preparation path verifies backend SHA256 checksums before bundling.
-- [ ] The app has a fallback concept for system/custom backend paths without making Homebrew the primary path.
-- [ ] Backend verification failure produces structured error data usable by setup and Activity Log.
+- [x] The app has a backend runner that can execute the bundled `displayplacer`.
+- [x] The backend runner can run `list` and capture stdout, stderr, exit code, backend path, and backend architecture.
+- [x] Apple Silicon and Intel backend selection is handled automatically or through a Universal backend.
+- [x] Backend version and backend source are available to the app for display/logging.
+- [x] The build/release preparation path verifies backend SHA256 checksums before bundling.
+- [x] The app has a fallback concept for system/custom backend paths without making Homebrew the primary path.
+- [x] Backend verification failure produces structured error data usable by setup and Activity Log.
 
 ## Blocked by
 

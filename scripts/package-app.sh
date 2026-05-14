@@ -26,6 +26,10 @@ mkdir -p "$APP_DIR/Contents/Resources"
 
 cp "$EXECUTABLE_PATH" "$APP_DIR/Contents/MacOS/$EXECUTABLE_NAME"
 
+find "$BUILD_ROOT" -path "*/$CONFIGURATION/*.bundle" -type d -maxdepth 5 | while read -r bundle; do
+  cp -R "$bundle" "$APP_DIR/Contents/Resources/"
+done
+
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
