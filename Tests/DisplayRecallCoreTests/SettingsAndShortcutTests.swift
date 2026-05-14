@@ -22,6 +22,8 @@ final class SettingsAndShortcutTests: XCTestCase {
         )
 
         XCTAssertEqual(ProfileNameGenerator.generatedName(types: ["built-in screen"], language: .simplifiedChinese), "内置显示器")
+        XCTAssertEqual(ProfileNameGenerator.defaultName(index: 1, language: .english), "Profile 1")
+        XCTAssertEqual(ProfileNameGenerator.defaultName(index: 1, language: .simplifiedChinese), "配置 1")
         XCTAssertEqual(profile.name, "Built-in display")
     }
 

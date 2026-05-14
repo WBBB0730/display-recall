@@ -15,14 +15,28 @@ public struct ProfileManager: Sendable {
     }
 
     @discardableResult
-    public mutating func saveCurrentLayout(_ layout: CurrentDisplayLayout) throws -> ProfileStoreDocument {
+    public mutating func saveCurrentLayout(
+        _ layout: CurrentDisplayLayout,
+        name: String? = nil,
+        makeAutomaticDefault: Bool = false
+    ) throws -> ProfileStoreDocument {
+        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let profile = DisplayProfile(
-            name: layout.generatedProfileName,
+            name: trimmedName.isEmpty ? layout.generatedProfileName : trimmedName,
             command: layout.command,
             displaySetupFingerprint: layout.displaySetupFingerprint,
             displaySummary: layout.displaySummary
         )
         document.profiles.append(profile)
+        if makeAutomaticDefault {
+            clearAutomaticDefault(for: layout.displaySetupFingerprint)
+            document.automaticDefaultRules.append(
+                AutomaticDefaultRule(
+                    displaySetupFingerprint: layout.displaySetupFingerprint,
+                    profileId: profile.id
+                )
+            )
+        }
         return document
     }
 

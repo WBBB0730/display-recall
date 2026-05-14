@@ -14,6 +14,21 @@ final class ProfileManagementTests: XCTestCase {
         XCTAssertEqual(updated.profiles[0].displaySummary, layout.displaySummary)
     }
 
+    func testSaveCurrentLayoutCanUseEditedNameAndMakeAutomaticDefault() throws {
+        var manager = ProfileManager(document: ProfileStoreDocument())
+        let layout = try CurrentDisplayLayoutParser.parse(Self.displayListOutput)
+
+        let updated = try manager.saveCurrentLayout(
+            layout,
+            name: "配置 1",
+            makeAutomaticDefault: true
+        )
+
+        XCTAssertEqual(updated.profiles[0].name, "配置 1")
+        XCTAssertEqual(updated.automaticDefaultRules.first?.profileId, updated.profiles[0].id)
+        XCTAssertEqual(updated.automaticDefaultRules.first?.displaySetupFingerprint, layout.displaySetupFingerprint)
+    }
+
     func testRenameNotesAndAdvancedCommandValidation() throws {
         let profile = DisplayProfile.fixture()
         var manager = ProfileManager(document: ProfileStoreDocument(profiles: [profile]))

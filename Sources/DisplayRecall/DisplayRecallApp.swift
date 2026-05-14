@@ -142,6 +142,10 @@ final class LocalizationController: ObservableObject {
     func configuredShortcuts(_ count: Int) -> String {
         status("Configured shortcuts: \(count)", chinese: "已配置快捷键：\(count)")
     }
+
+    func defaultProfileName(index: Int) -> String {
+        ProfileNameGenerator.defaultName(index: index, language: preference)
+    }
 }
 
 @MainActor
@@ -391,7 +395,10 @@ struct MenuBarContentView: View {
                 return
             }
             var manager = ProfileManager(document: document)
-            document = try manager.saveCurrentLayout(layout)
+            document = try manager.saveCurrentLayout(
+                layout,
+                name: localization.defaultProfileName(index: document.profiles.count + 1)
+            )
             try DisplayRecallStore.live().save(document)
             currentFingerprint = layout.displaySetupFingerprint
             statusMessage = localization.status("Saved current layout.", chinese: "已保存当前布局。")
@@ -744,7 +751,7 @@ struct SetupView: View {
                     .textFieldStyle(.roundedBorder)
                     .onAppear {
                         if profileName.isEmpty {
-                            profileName = layout.generatedProfileName
+                            profileName = localization.defaultProfileName(index: 1)
                         }
                     }
 
@@ -854,6 +861,65 @@ private struct ProfileImportPreviewSheetState: Identifiable {
     let backup: ProfileBackupDocument
     let preview: ProfileImportPreview
     let currentFingerprint: DisplaySetupFingerprint?
+}
+
+private struct CreateProfileSheetState: Identifiable {
+    let id = UUID()
+    let layout: CurrentDisplayLayout
+    let suggestedName: String
+    let makeAutomaticDefault: Bool
+}
+
+private struct CreateProfileSheet: View {
+    @EnvironmentObject private var localization: LocalizationController
+    let state: CreateProfileSheetState
+    let onCancel: () -> Void
+    let onSave: (String, Bool) -> Void
+
+    @State private var name: String
+    @State private var makeAutomaticDefault: Bool
+
+    init(
+        state: CreateProfileSheetState,
+        onCancel: @escaping () -> Void,
+        onSave: @escaping (String, Bool) -> Void
+    ) {
+        self.state = state
+        self.onCancel = onCancel
+        self.onSave = onSave
+        _name = State(initialValue: state.suggestedName)
+        _makeAutomaticDefault = State(initialValue: state.makeAutomaticDefault)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(localization.text(.createProfile))
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Text(state.layout.displaySummary)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            TextField(localization.text(.profileName), text: $name)
+                .textFieldStyle(.roundedBorder)
+
+            Toggle(localization.text(.automaticDefaultForSetup), isOn: $makeAutomaticDefault)
+
+            HStack {
+                Spacer()
+                Button(localization.text(.cancel), action: onCancel)
+                Button(localization.text(.saveCurrentLayout)) {
+                    onSave(name, makeAutomaticDefault)
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 420)
+    }
 }
 
 private struct ExportProfilesSheet: View {
@@ -1069,6 +1135,7 @@ struct ProfilesContentView: View {
     @State private var statusMessage = ""
     @State private var exportSheet: ProfileExportSheetState?
     @State private var importPreviewSheet: ProfileImportPreviewSheetState?
+    @State private var createProfileSheet: CreateProfileSheetState?
 
     private var visibleProfiles: [DisplayProfile] {
         ProfileListFilter.filter(document.profiles, query: searchQuery)
@@ -1078,30 +1145,31 @@ struct ProfilesContentView: View {
         NavigationSplitView {
             List(selection: $selectedProfileIDs) {
                 ForEach(visibleProfiles) { profile in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(profile.name)
-                            .fontWeight(.medium)
-                        Text(profile.displaySummary.isEmpty ? profile.displaySetupFingerprint.rawValue : profile.displaySummary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        HStack(spacing: 8) {
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(profile.name)
+                                .fontWeight(.medium)
+                            Text(profile.displaySummary.isEmpty ? profile.displaySetupFingerprint.rawValue : profile.displaySummary)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                        HStack(spacing: 6) {
                             if profile.displaySetupFingerprint == currentFingerprint {
-                                Label(localization.text(.matchesCurrentSetup), systemImage: "checkmark.circle")
+                                Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.green)
-                            } else {
-                                Label(localization.text(.differentSetup), systemImage: "circle")
-                                    .foregroundStyle(.secondary)
                             }
                             if isAutomaticDefault(profile) {
-                                Label(localization.text(.automaticDefault), systemImage: "bolt.circle")
+                                Image(systemName: "bolt.fill")
                                     .foregroundStyle(.blue)
                             }
                             if profile.importedNeedsFirstApplyConfirmation || profile.isCommandEdited {
-                                Label(localization.text(.highRisk), systemImage: "exclamationmark.triangle")
+                                Image(systemName: "exclamationmark.triangle.fill")
                                     .foregroundStyle(.orange)
                             }
                         }
-                        .font(.caption)
+                        .imageScale(.small)
                     }
                     .tag(profile.id)
                 }
@@ -1114,7 +1182,7 @@ struct ProfilesContentView: View {
                         await saveCurrentLayout()
                     }
                 } label: {
-                    Label(localization.text(.saveCurrentLayout), systemImage: "plus")
+                    Label(localization.text(.createProfile), systemImage: "plus")
                 }
                 Button {
                     exportSelectedProfiles()
@@ -1198,6 +1266,19 @@ struct ProfilesContentView: View {
             )
             .environmentObject(localization)
         }
+        .sheet(item: $createProfileSheet) { sheet in
+            CreateProfileSheet(
+                state: sheet,
+                onCancel: {
+                    createProfileSheet = nil
+                },
+                onSave: { name, makeAutomaticDefault in
+                    createProfileSheet = nil
+                    createProfile(from: sheet.layout, name: name, makeAutomaticDefault: makeAutomaticDefault)
+                }
+            )
+            .environmentObject(localization)
+        }
         .sheet(item: $importPreviewSheet) { sheet in
             ImportPreviewSheet(
                 state: sheet,
@@ -1266,8 +1347,28 @@ struct ProfilesContentView: View {
                 )
                 return
             }
+            createProfileSheet = CreateProfileSheetState(
+                layout: layout,
+                suggestedName: localization.defaultProfileName(index: document.profiles.count + 1),
+                makeAutomaticDefault: true
+            )
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func createProfile(
+        from layout: CurrentDisplayLayout,
+        name: String,
+        makeAutomaticDefault: Bool
+    ) {
+        do {
             var manager = ProfileManager(document: document)
-            document = try manager.saveCurrentLayout(layout)
+            document = try manager.saveCurrentLayout(
+                layout,
+                name: name,
+                makeAutomaticDefault: makeAutomaticDefault
+            )
             selectedProfileIDs = Set(document.profiles.last.map { [$0.id] } ?? [])
             saveDocument()
             statusMessage = localization.status("Saved current layout.", chinese: "已保存当前布局。")

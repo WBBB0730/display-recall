@@ -372,6 +372,11 @@ public enum ProfileNameGenerator {
         }
         return names.isEmpty ? (language == .simplifiedChinese ? "显示器" : "Display") : names.joined(separator: " + ")
     }
+
+    public static func defaultName(index: Int, language: LanguagePreference) -> String {
+        let number = max(1, index)
+        return language.resolved() == .simplifiedChinese ? "配置 \(number)" : "Profile \(number)"
+    }
 }
 
 public struct ShortcutBinding: Equatable, Sendable, Codable {
