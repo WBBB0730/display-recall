@@ -24,9 +24,34 @@ struct DisplayRecallApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var displayChangeObserver: NSObjectProtocol?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         DockIconController.applyCurrentPreference()
+        displayChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            NotificationCenter.default.post(name: .displayRecallDisplaySetupChanged, object: nil)
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(AutomaticApplyCoordinator.startupStabilitySeconds))
+            NotificationCenter.default.post(name: .displayRecallStartupStabilized, object: nil)
+        }
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        if let displayChangeObserver {
+            NotificationCenter.default.removeObserver(displayChangeObserver)
+        }
+    }
+}
+
+extension Notification.Name {
+    static let displayRecallDisplaySetupChanged = Notification.Name("DisplayRecallDisplaySetupChanged")
+    static let displayRecallStartupStabilized = Notification.Name("DisplayRecallStartupStabilized")
 }
 
 @MainActor
@@ -47,6 +72,7 @@ struct MenuBarContentView: View {
     @State private var document = ProfileStoreDocument()
     @State private var currentFingerprint: DisplaySetupFingerprint?
     @State private var automationStatus = AutomationStatus.enabled
+    @State private var automaticCoordinator = AutomaticApplyCoordinator(countdownSeconds: 5)
     @State private var statusMessage = ""
 
     private var menuModel: MenuBarModel {
@@ -71,6 +97,60 @@ struct MenuBarContentView: View {
             }
 
             Divider()
+
+            switch automaticCoordinator.state {
+            case let .pending(profile, remainingSeconds, trigger):
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Pending automatic apply", systemImage: "timer")
+                        .font(.headline)
+                    Text("\(remainingSeconds)s: \(profile.name)")
+                        .font(.caption)
+                    Text(trigger == .startup ? "Startup" : "Display change")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Button("Apply Now") {
+                            Task {
+                                automaticCoordinator.state = .idle
+                                await apply(MenuBarProfileItem(
+                                    profile: profile,
+                                    currentFingerprint: currentFingerprint,
+                                    isAutomaticDefault: true
+                                ))
+                            }
+                        }
+                        Button("Stop") {
+                            automaticCoordinator.stopPendingApply()
+                        }
+                        Button("Pause") {
+                            automationStatus = .paused
+                            automaticCoordinator.pauseAutomation()
+                        }
+                    }
+                }
+                Divider()
+
+            case let .needsChoice(matchingProfiles):
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Choose a profile", systemImage: "questionmark.circle")
+                        .font(.headline)
+                    ForEach(matchingProfiles) { profile in
+                        Button(profile.name) {
+                            Task {
+                                await apply(MenuBarProfileItem(
+                                    profile: profile,
+                                    currentFingerprint: currentFingerprint,
+                                    isAutomaticDefault: false
+                                ))
+                            }
+                        }
+                    }
+                }
+                Divider()
+
+            case .idle:
+                EmptyView()
+            }
 
             if !menuModel.matchingProfiles.isEmpty {
                 Text("Current Display Setup")
@@ -133,6 +213,16 @@ struct MenuBarContentView: View {
             await refreshCurrentSetup()
             loadProfiles()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .displayRecallDisplaySetupChanged)) { _ in
+            Task {
+                await scheduleAutomaticApply(trigger: .displayChange)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .displayRecallStartupStabilized)) { _ in
+            Task {
+                await scheduleAutomaticApply(trigger: .startup)
+            }
+        }
     }
 
     private func profileButton(_ item: MenuBarProfileItem) -> some View {
@@ -192,6 +282,7 @@ struct MenuBarContentView: View {
     }
 
     private func apply(_ item: MenuBarProfileItem) async {
+        automaticCoordinator.cancelForManualApply()
         do {
             let runner = try DisplayplacerBackend.bundledRunner()
             let manager = ProfileManager(document: document)
@@ -207,6 +298,27 @@ struct MenuBarContentView: View {
             }
         } catch {
             statusMessage = error.localizedDescription
+        }
+    }
+
+    private func scheduleAutomaticApply(trigger: AutomaticApplyTrigger) async {
+        await refreshCurrentSetup()
+        loadProfiles()
+        guard let currentFingerprint else { return }
+
+        switch trigger {
+        case .displayChange:
+            _ = automaticCoordinator.handleDisplayChange(
+                document: document,
+                currentFingerprint: currentFingerprint,
+                automationStatus: automationStatus
+            )
+        case .startup:
+            _ = automaticCoordinator.handleStartup(
+                document: document,
+                currentFingerprint: currentFingerprint,
+                automationStatus: automationStatus
+            )
         }
     }
 }

@@ -12,17 +12,17 @@ Implement automatic profile matching and apply behavior for display setup change
 
 ## Acceptance criteria
 
-- [ ] The app listens for display setup change events.
-- [ ] Display changes schedule a 5-second pending automatic apply flow when automation is enabled.
-- [ ] A popover shows the profile that will be applied and lets the user stop this apply.
-- [ ] The user can immediately apply from the pending popover.
-- [ ] The user can pause automation from the pending popover.
-- [ ] At countdown end, the app rereads current display state before matching/applying.
-- [ ] If no unique default profile matches, the app does not guess or apply.
-- [ ] If multiple profiles match but no default exists, the app prompts for user choice rather than applying.
-- [ ] Login startup waits for display stability before attempting match.
-- [ ] Manual profile apply cancels any pending automatic apply.
-- [ ] Paused automation prevents display-change and login automatic applies while preserving manual apply.
+- [x] The app listens for display setup change events.
+- [x] Display changes schedule a 5-second pending automatic apply flow when automation is enabled.
+- [x] A popover shows the profile that will be applied and lets the user stop this apply.
+- [x] The user can immediately apply from the pending popover.
+- [x] The user can pause automation from the pending popover.
+- [x] At countdown end, the app rereads current display state before matching/applying.
+- [x] If no unique default profile matches, the app does not guess or apply.
+- [x] If multiple profiles match but no default exists, the app prompts for user choice rather than applying.
+- [x] Login startup waits for display stability before attempting match.
+- [x] Manual profile apply cancels any pending automatic apply.
+- [x] Paused automation prevents display-change and login automatic applies while preserving manual apply.
 
 ## Blocked by
 
