@@ -290,6 +290,7 @@ final class StatusBarController: NSObject {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private var document = ProfileStoreDocument()
     private var currentFingerprint: DisplaySetupFingerprint?
+    private var checkedProfileID: UUID?
     private var automationStatus = AutomationStatus.enabled
     private var automaticCoordinator = AutomaticApplyCoordinator(countdownSeconds: 5)
     private var pendingApplyTask: Task<Void, Never>?
@@ -377,7 +378,8 @@ final class StatusBarController: NSObject {
         let model = MenuBarModel.build(
             document: document,
             currentFingerprint: currentFingerprint,
-            automationStatus: automationStatus
+            automationStatus: automationStatus,
+            checkedProfileID: checkedProfileID
         )
 
         for item in model.matchingProfiles + model.otherProfiles {
@@ -427,7 +429,7 @@ final class StatusBarController: NSObject {
     private func profileMenuItem(_ item: MenuBarProfileItem) -> NSMenuItem {
         let menuItem = actionItem(title: truncatedMenuTitle(item.profile.name), action: #selector(applyProfileFromMenu(_:)))
         menuItem.representedObject = item.profile.id.uuidString
-        menuItem.state = item.matchesCurrentDisplaySetup ? .on : .off
+        menuItem.state = item.isChecked ? .on : .off
         menuItem.toolTip = item.profile.name
         return menuItem
     }
@@ -525,6 +527,7 @@ final class StatusBarController: NSObject {
             )
             try DisplayRecallStore.live().save(document)
             currentFingerprint = layout.displaySetupFingerprint
+            checkedProfileID = document.profiles.last?.id
         } catch {
             recordActivity(ActivityLogEntry(
                 type: .backendVerification,
@@ -547,6 +550,9 @@ final class StatusBarController: NSObject {
                 profile: profile,
                 result: result
             )
+            if result.exitCode == 0 {
+                checkedProfileID = profile.id
+            }
             await refreshCurrentSetup()
             loadProfiles()
         } catch {
@@ -841,7 +847,7 @@ struct MenuBarContentView: View {
 
     private func profileButton(_ item: MenuBarProfileItem) -> some View {
         Toggle(isOn: Binding(
-            get: { item.isAutomaticDefault },
+            get: { item.isChecked },
             set: { _ in
                 Task {
                     await apply(item)
