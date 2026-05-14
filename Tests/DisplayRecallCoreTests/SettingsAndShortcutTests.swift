@@ -25,6 +25,30 @@ final class SettingsAndShortcutTests: XCTestCase {
         XCTAssertEqual(profile.name, "Built-in display")
     }
 
+    func testLocalizationCatalogCoversEnglishChineseAndPreservesTechnicalDetails() {
+        XCTAssertEqual(AppLocalization.text(.settings, language: .english), "Settings")
+        XCTAssertEqual(AppLocalization.text(.settings, language: .simplifiedChinese), "设置")
+        XCTAssertEqual(AppLocalization.text(.applyNow, language: .simplifiedChinese), "立即应用")
+        XCTAssertEqual(
+            AppLocalization.pendingApplyTitle(profileName: "displayplacer id:AAA", remainingSeconds: 5, language: .simplifiedChinese),
+            "将在 5 秒后应用 displayplacer id:AAA"
+        )
+        XCTAssertTrue(AppLocalization.hasTranslations(for: .english))
+        XCTAssertTrue(AppLocalization.hasTranslations(for: .simplifiedChinese))
+    }
+
+    func testSystemLanguageResolutionUsesPreferredLanguagesWithoutRequiringLiveMonitoring() {
+        XCTAssertEqual(
+            LanguagePreference.system.resolved(preferredLanguages: ["zh-Hans-US", "en-US"]),
+            .simplifiedChinese
+        )
+        XCTAssertEqual(
+            LanguagePreference.system.resolved(preferredLanguages: ["fr-FR", "en-US"]),
+            .english
+        )
+        XCTAssertEqual(LanguagePreference.english.resolved(preferredLanguages: ["zh-Hans"]), .english)
+    }
+
     func testShortcutBindingsDefaultEmptyAndDetectConflicts() {
         let first = ShortcutBinding(profileId: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!)
         let second = ShortcutBinding(

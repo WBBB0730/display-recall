@@ -11,10 +11,12 @@ struct DisplayRecallApp: App {
     var body: some Scene {
         MenuBarExtra(AppConfiguration.displayName, systemImage: "display.2") {
             MenuBarContentView()
+                .environmentObject(LocalizationController.shared)
         }
 
         WindowGroup(AppWindow.main.title, id: AppWindow.main.id) {
             MainWindowView()
+                .environmentObject(LocalizationController.shared)
         }
         .defaultSize(width: 920, height: 620)
     }
@@ -78,6 +80,71 @@ final class MainWindowRouter: ObservableObject {
 }
 
 @MainActor
+final class LocalizationController: ObservableObject {
+    static let shared = LocalizationController()
+
+    @Published var preference = LanguagePreference.system
+
+    private init() {}
+
+    var language: LanguagePreference {
+        preference.resolved()
+    }
+
+    func text(_ key: AppLocalizationKey) -> String {
+        AppLocalization.text(key, language: preference)
+    }
+
+    func pendingApplyTitle(profileName: String, remainingSeconds: Int) -> String {
+        AppLocalization.pendingApplyTitle(
+            profileName: profileName,
+            remainingSeconds: remainingSeconds,
+            language: preference
+        )
+    }
+
+    func triggerTitle(_ trigger: AutomaticApplyTrigger) -> String {
+        switch (language, trigger) {
+        case (.simplifiedChinese, .startup):
+            "启动"
+        case (.simplifiedChinese, .displayChange):
+            "显示器已变化"
+        case (_, .startup):
+            "Startup"
+        case (_, .displayChange):
+            "Display changed"
+        }
+    }
+
+    func status(_ english: String, chinese: String) -> String {
+        language == .simplifiedChinese ? chinese : english
+    }
+
+    func createdProfile(_ name: String) -> String {
+        status("Created \(name)", chinese: "已创建 \(name)")
+    }
+
+    func appliedProfile(_ name: String) -> String {
+        status("Applied \(name).", chinese: "已应用 \(name)。")
+    }
+
+    func highRiskAppliedProfile(_ name: String) -> String {
+        status(
+            "Applied \(name). Review this high-risk change.",
+            chinese: "已应用 \(name)。请检查这个高风险变更。"
+        )
+    }
+
+    func countdownLabel(seconds: Int) -> String {
+        status("Countdown: \(seconds)s", chinese: "倒计时：\(seconds) 秒")
+    }
+
+    func configuredShortcuts(_ count: Int) -> String {
+        status("Configured shortcuts: \(count)", chinese: "已配置快捷键：\(count)")
+    }
+}
+
+@MainActor
 final class PendingApplyPanelController {
     static let shared = PendingApplyPanelController()
 
@@ -95,7 +162,7 @@ final class PendingApplyPanelController {
         let rootView = PendingApplyPanelView(
             profileName: profile.name,
             remainingSeconds: remainingSeconds,
-            triggerTitle: trigger == .startup ? "Startup" : "Display changed",
+            trigger: trigger,
             applyNow: applyNow,
             stop: stop
         )
@@ -140,9 +207,11 @@ final class PendingApplyPanelController {
 }
 
 struct PendingApplyPanelView: View {
+    @ObservedObject private var localization = LocalizationController.shared
+
     let profileName: String
     let remainingSeconds: Int
-    let triggerTitle: String
+    let trigger: AutomaticApplyTrigger
     let applyNow: () -> Void
     let stop: () -> Void
 
@@ -153,9 +222,12 @@ struct PendingApplyPanelView: View {
                     .font(.title2)
                     .foregroundStyle(.blue)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Applying \(profileName) in \(remainingSeconds)s")
+                    Text(localization.pendingApplyTitle(
+                        profileName: profileName,
+                        remainingSeconds: remainingSeconds
+                    ))
                         .font(.headline)
-                    Text(triggerTitle)
+                    Text(localization.triggerTitle(trigger))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -165,8 +237,8 @@ struct PendingApplyPanelView: View {
 
             HStack {
                 Spacer()
-                Button("Stop", action: stop)
-                Button("Apply Now", action: applyNow)
+                Button(localization.text(.stop), action: stop)
+                Button(localization.text(.applyNow), action: applyNow)
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -177,6 +249,7 @@ struct PendingApplyPanelView: View {
 
 struct MenuBarContentView: View {
     @Environment(\.openWindow) private var openWindow
+    @EnvironmentObject private var localization: LocalizationController
     @State private var document = ProfileStoreDocument()
     @State private var currentFingerprint: DisplaySetupFingerprint?
     @State private var automationStatus = AutomationStatus.enabled
@@ -196,23 +269,23 @@ struct MenuBarContentView: View {
         Group {
             Text(menuModel.statusTitle)
             if !menuModel.matchingProfiles.isEmpty {
-                Text("Current Display Setup")
+            Text(localization.text(.currentDisplaySetup))
                 ForEach(menuModel.matchingProfiles) { item in
                     profileButton(item)
                 }
             } else {
-                Text("No matching profiles")
+                Text(localization.text(.noMatchingProfiles))
             }
 
             if !menuModel.otherProfiles.isEmpty {
-                Menu("Other Profiles") {
+                Menu(localization.text(.otherProfiles)) {
                     ForEach(menuModel.otherProfiles) { item in
                         profileButton(item)
                     }
                 }
             }
 
-            Button("Save Current Layout") {
+            Button(localization.text(.saveCurrentLayout)) {
                 Task {
                     await saveCurrentLayout()
                 }
@@ -224,26 +297,26 @@ struct MenuBarContentView: View {
 
             Divider()
 
-            Button(AppMenuAction.openDisplayRecall.title) {
+            Button(localization.text(.openDisplayRecall)) {
                 openMainWindow(section: .profiles)
             }
 
-            Button(AppMenuAction.openSettings.title) {
+            Button(localization.text(.settings)) {
                 openMainWindow(section: .settings)
             }
 
-            Toggle("Automatic Apply", isOn: Binding(
+            Toggle(localization.text(.automaticApply), isOn: Binding(
                 get: { automationStatus == .enabled },
                 set: { automationStatus = $0 ? .enabled : .paused }
             ))
 
-            Button("Check for Updates") {
+            Button(localization.text(.checkForUpdates)) {
                 NSWorkspace.shared.open(ReleaseConfiguration.production().sparklePolicy.feedURL)
             }
 
             Divider()
 
-            Button(AppMenuAction.quit.title) {
+            Button(localization.text(.quitDisplayRecall)) {
                 NSApp.terminate(nil)
             }
         }
@@ -312,14 +385,17 @@ struct MenuBarContentView: View {
         do {
             let service = try FirstRunSetupService.live()
             guard case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
-                statusMessage = "Could not read current layout."
+                statusMessage = localization.status(
+                    "Could not read current layout.",
+                    chinese: "无法读取当前布局。"
+                )
                 return
             }
             var manager = ProfileManager(document: document)
             document = try manager.saveCurrentLayout(layout)
             try DisplayRecallStore.live().save(document)
             currentFingerprint = layout.displaySetupFingerprint
-            statusMessage = "Saved current layout."
+            statusMessage = localization.status("Saved current layout.", chinese: "已保存当前布局。")
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -341,10 +417,10 @@ struct MenuBarContentView: View {
             )
             if item.requiresHighRiskApply {
                 statusMessage = result.exitCode == 0
-                    ? "Applied \(item.profile.name). Review this high-risk change."
+                    ? localization.highRiskAppliedProfile(item.profile.name)
                     : result.stderr
             } else {
-                statusMessage = result.exitCode == 0 ? "Applied \(item.profile.name)." : result.stderr
+                statusMessage = result.exitCode == 0 ? localization.appliedProfile(item.profile.name) : result.stderr
             }
         } catch {
             statusMessage = error.localizedDescription
@@ -548,6 +624,7 @@ struct MenuBarContentView: View {
 
 struct MainWindowView: View {
     @AppStorage(SetupPreference.completedUserDefaultsKey) private var setupCompleted = false
+    @EnvironmentObject private var localization: LocalizationController
     @ObservedObject private var router = MainWindowRouter.shared
 
     var body: some View {
@@ -555,17 +632,30 @@ struct MainWindowView: View {
             NavigationSplitView {
                 List(selection: $router.selectedSection) {
                     ForEach(MainWindowSection.allCases) { section in
-                        Label(section.title, systemImage: section.systemImage)
+                        Label(localizedTitle(for: section), systemImage: section.systemImage)
                             .tag(section)
                     }
                 }
                 .navigationTitle(AppConfiguration.displayName)
             } detail: {
                 selectedContent
-                    .navigationTitle(router.selectedSection.title)
+                    .navigationTitle(localizedTitle(for: router.selectedSection))
             }
         } else {
             SetupView(setupCompleted: $setupCompleted)
+        }
+    }
+
+    private func localizedTitle(for section: MainWindowSection) -> String {
+        switch section {
+        case .profiles:
+            localization.text(.profiles)
+        case .activityLog:
+            localization.text(.activityLog)
+        case .settings:
+            localization.text(.settings)
+        case .about:
+            localization.text(.about)
         }
     }
 
@@ -598,6 +688,7 @@ struct ProfilesView: View {
 
 struct SetupView: View {
     @Binding var setupCompleted: Bool
+    @EnvironmentObject private var localization: LocalizationController
     @State private var setupState = FirstRunSetupState.idle
     @State private var profileName = ""
     @State private var makeAutomaticDefault = true
@@ -605,11 +696,11 @@ struct SetupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Welcome to Display Recall")
+            Text(localization.text(.welcomeToDisplayRecall))
                 .font(.largeTitle)
                 .fontWeight(.semibold)
 
-            Text("Display Recall will verify its bundled displayplacer backend, then save your current display layout as the first profile.")
+            Text(localization.text(.displayRecallSetupDescription))
                 .foregroundStyle(.secondary)
 
             setupContent
@@ -627,11 +718,14 @@ struct SetupView: View {
     private var setupContent: some View {
         switch setupState {
         case .idle, .verifying:
-            ProgressView("Verifying bundled displayplacer...")
+            ProgressView(localization.status(
+                "Verifying bundled displayplacer...",
+                chinese: "正在验证内置 displayplacer..."
+            ))
 
         case let .failed(error):
             VStack(alignment: .leading, spacing: 12) {
-                Label("displayplacer verification failed", systemImage: "exclamationmark.triangle")
+                Label(localization.text(.backendVerificationFailed), systemImage: "exclamationmark.triangle")
                     .font(.headline)
                 Text(error.stderr)
                     .foregroundStyle(.secondary)
@@ -644,10 +738,10 @@ struct SetupView: View {
 
         case let .ready(layout):
             VStack(alignment: .leading, spacing: 14) {
-                Label("displayplacer is ready", systemImage: "checkmark.circle")
+                Label(localization.text(.backendReady), systemImage: "checkmark.circle")
                     .font(.headline)
 
-                TextField("Profile name", text: $profileName)
+                TextField(localization.text(.profileName), text: $profileName)
                     .textFieldStyle(.roundedBorder)
                     .onAppear {
                         if profileName.isEmpty {
@@ -655,9 +749,9 @@ struct SetupView: View {
                         }
                     }
 
-                Toggle("Automatically use this profile for this display setup", isOn: $makeAutomaticDefault)
+                Toggle(localization.text(.automaticDefaultForSetup), isOn: $makeAutomaticDefault)
 
-                Button("Create Profile") {
+                Button(localization.text(.createProfile)) {
                     completeSetup(with: layout)
                 }
                 .keyboardShortcut(.defaultAction)
@@ -665,9 +759,9 @@ struct SetupView: View {
 
         case let .completed(profile):
             VStack(alignment: .leading, spacing: 12) {
-                Label("Created \(profile.name)", systemImage: "checkmark.circle.fill")
+                Label(localization.createdProfile(profile.name), systemImage: "checkmark.circle.fill")
                     .font(.headline)
-                Button("Open Profiles") {
+                Button(localization.text(.openProfiles)) {
                     setupCompleted = true
                 }
             }
@@ -742,6 +836,7 @@ struct SetupView: View {
 }
 
 struct ProfilesContentView: View {
+    @EnvironmentObject private var localization: LocalizationController
     @State private var document = ProfileStoreDocument()
     @State private var selectedProfileIDs = Set<UUID>()
     @State private var statusMessage = ""
@@ -757,7 +852,7 @@ struct ProfilesContentView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         if isAutomaticDefault(profile) {
-                            Label("Automatic default", systemImage: "checkmark.circle")
+                            Label(localization.text(.automaticDefault), systemImage: "checkmark.circle")
                                 .font(.caption)
                                 .foregroundStyle(.green)
                         }
@@ -765,19 +860,19 @@ struct ProfilesContentView: View {
                     .tag(profile.id)
                 }
             }
-            .navigationTitle(MainWindowSection.profiles.title)
+            .navigationTitle(localization.text(.profiles))
             .toolbar {
                 Button {
                     Task {
                         await saveCurrentLayout()
                     }
                 } label: {
-                    Label("Save Current Layout", systemImage: "plus")
+                    Label(localization.text(.saveCurrentLayout), systemImage: "plus")
                 }
                 Button {
                     exportSelectedProfiles()
                 } label: {
-                    Label("Export Selected", systemImage: "square.and.arrow.up")
+                    Label(localization.text(.exportSelected), systemImage: "square.and.arrow.up")
                 }
                 .disabled(selectedProfileIDs.isEmpty)
 
@@ -786,7 +881,7 @@ struct ProfilesContentView: View {
                         await importBackup()
                     }
                 } label: {
-                    Label("Import", systemImage: "square.and.arrow.down")
+                    Label(localization.text(.importProfiles), systemImage: "square.and.arrow.down")
                 }
             }
         } detail: {
@@ -824,11 +919,11 @@ struct ProfilesContentView: View {
                         .font(.system(size: 44))
                         .foregroundStyle(.secondary)
 
-                    Text("No Profile Selected")
+                    Text(localization.text(.noProfileSelected))
                         .font(.title2)
                         .fontWeight(.semibold)
 
-                    Text("Save your current display layout or select a profile.")
+                    Text(localization.text(.noProfileSelectedDescription))
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -879,14 +974,17 @@ struct ProfilesContentView: View {
         do {
             let service = try FirstRunSetupService.live()
             guard case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
-                statusMessage = "Could not read current layout."
+                statusMessage = localization.status(
+                    "Could not read current layout.",
+                    chinese: "无法读取当前布局。"
+                )
                 return
             }
             var manager = ProfileManager(document: document)
             document = try manager.saveCurrentLayout(layout)
             selectedProfileIDs = Set(document.profiles.last.map { [$0.id] } ?? [])
             saveDocument()
-            statusMessage = "Saved current layout."
+            statusMessage = localization.status("Saved current layout.", chinese: "已保存当前布局。")
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -915,7 +1013,7 @@ struct ProfilesContentView: View {
                     exitCode: result.exitCode
                 )
             )
-            statusMessage = result.exitCode == 0 ? "Applied \(profile.name)." : result.stderr
+            statusMessage = result.exitCode == 0 ? localization.appliedProfile(profile.name) : result.stderr
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -946,7 +1044,10 @@ struct ProfilesContentView: View {
         do {
             let service = try FirstRunSetupService.live()
             guard case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
-                statusMessage = "Could not read current display setup."
+                statusMessage = localization.status(
+                    "Could not read current display setup.",
+                    chinese: "无法读取当前显示器组合。"
+                )
                 return
             }
             var manager = ProfileManager(document: document)
@@ -957,7 +1058,7 @@ struct ProfilesContentView: View {
             )
             document = manager.document
             saveDocument()
-            statusMessage = "Rebound \(profile.name)."
+            statusMessage = localization.status("Rebound \(profile.name).", chinese: "已重新绑定 \(profile.name)。")
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -969,9 +1070,9 @@ struct ProfilesContentView: View {
             try manager.updateCommand(profileID: profile.id, command: command)
             document = manager.document
             saveDocument()
-            statusMessage = "Command saved."
+            statusMessage = localization.status("Command saved.", chinese: "命令已保存。")
         } catch {
-            statusMessage = "Invalid displayplacer command."
+            statusMessage = localization.status("Invalid displayplacer command.", chinese: "无效的 displayplacer 命令。")
         }
     }
 
@@ -998,7 +1099,7 @@ struct ProfilesContentView: View {
             let backup = ProfileExporter.export(document: document, settings: settings, selection: selection)
             try saveBackup(backup, suggestedName: suggestedName)
             recordActivity(ActivityLogEntry(type: .importExport, trigger: .manual, metadata: ["action": "export"]))
-            statusMessage = "Exported backup."
+            statusMessage = localization.status("Exported backup.", chinese: "已导出备份。")
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -1035,7 +1136,10 @@ struct ProfilesContentView: View {
                     "conflicts": "\(preview.conflicts.count)"
                 ]
             ))
-            statusMessage = "Imported \(preview.profileCount) profiles."
+            statusMessage = localization.status(
+                "Imported \(preview.profileCount) profiles.",
+                chinese: "已导入 \(preview.profileCount) 个配置。"
+            )
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -1077,14 +1181,23 @@ struct ProfilesContentView: View {
 
     private func confirmImport(preview: ProfileImportPreview) -> Bool {
         let alert = NSAlert()
-        alert.messageText = "Import \(preview.profileCount) profiles?"
+        alert.messageText = localization.status(
+            "Import \(preview.profileCount) profiles?",
+            chinese: "导入 \(preview.profileCount) 个配置？"
+        )
         alert.informativeText = [
-            "Profiles: \(preview.profileNames.joined(separator: ", "))",
-            "Conflicts: \(preview.conflicts.count)",
-            "Matching current setup: \(preview.matchingStatuses.filter(\.matchesCurrentDisplaySetup).count)"
+            localization.status(
+                "Profiles: \(preview.profileNames.joined(separator: ", "))",
+                chinese: "配置：\(preview.profileNames.joined(separator: ", "))"
+            ),
+            localization.status("Conflicts: \(preview.conflicts.count)", chinese: "冲突：\(preview.conflicts.count)"),
+            localization.status(
+                "Matching current setup: \(preview.matchingStatuses.filter(\.matchesCurrentDisplaySetup).count)",
+                chinese: "匹配当前组合：\(preview.matchingStatuses.filter(\.matchesCurrentDisplaySetup).count)"
+            )
         ].joined(separator: "\n")
-        alert.addButton(withTitle: "Import")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: localization.text(.importProfiles))
+        alert.addButton(withTitle: localization.status("Cancel", chinese: "取消"))
         return alert.runModal() == .alertFirstButtonReturn
     }
 
@@ -1098,6 +1211,7 @@ struct ProfilesContentView: View {
 }
 
 struct ProfileDetailView: View {
+    @EnvironmentObject private var localization: LocalizationController
     @Binding var profile: DisplayProfile
     let isAutomaticDefault: Bool
     let statusMessage: String
@@ -1112,27 +1226,27 @@ struct ProfileDetailView: View {
 
     var body: some View {
         Form {
-            Section("Profile") {
-                TextField("Name", text: $profile.name)
-                TextField("Notes", text: $profile.notes, axis: .vertical)
+            Section(localization.text(.profile)) {
+                TextField(localization.text(.name), text: $profile.name)
+                TextField(localization.text(.notes), text: $profile.notes, axis: .vertical)
             }
 
-            Section("Display Setup") {
-                LabeledContent("Summary", value: profile.displaySummary)
-                LabeledContent("Fingerprint", value: profile.displaySetupFingerprint.rawValue)
-                Toggle("Automatic default for this setup", isOn: .constant(isAutomaticDefault))
+            Section(localization.text(.displaySetup)) {
+                LabeledContent(localization.text(.summary), value: profile.displaySummary)
+                LabeledContent(localization.text(.fingerprint), value: profile.displaySetupFingerprint.rawValue)
+                Toggle(localization.text(.automaticDefaultForSetup), isOn: .constant(isAutomaticDefault))
                     .disabled(true)
                 HStack {
-                    Button(isAutomaticDefault ? "Clear Default" : "Set Default") {
+                    Button(isAutomaticDefault ? localization.text(.clearDefault) : localization.text(.setDefault)) {
                         isAutomaticDefault ? onClearDefault(profile) : onSetDefault(profile)
                     }
-                    Button("Rebind to Current Displays") {
+                    Button(localization.text(.rebindToCurrentDisplays)) {
                         onRebind(profile)
                     }
                 }
             }
 
-            Section("Advanced Command") {
+            Section(localization.text(.advancedCommand)) {
                 TextEditor(text: $commandDraft)
                     .font(.system(.body, design: .monospaced))
                     .frame(minHeight: 120)
@@ -1144,13 +1258,13 @@ struct ProfileDetailView: View {
                     }
 
                 HStack {
-                    Button("Save Command") {
+                    Button(localization.text(.saveCommand)) {
                         onSaveCommand(profile, commandDraft)
                     }
-                    Button("Export") {
+                    Button(localization.text(.export)) {
                         onExport(profile)
                     }
-                    Button("Apply") {
+                    Button(localization.text(.apply)) {
                         onApply(profile)
                     }
                     .keyboardShortcut(.defaultAction)
@@ -1158,7 +1272,7 @@ struct ProfileDetailView: View {
             }
 
             if !statusMessage.isEmpty {
-                Section("Status") {
+                Section(localization.text(.status)) {
                     Text(statusMessage)
                         .foregroundStyle(.secondary)
                 }
@@ -1170,6 +1284,7 @@ struct ProfileDetailView: View {
 }
 
 struct ActivityLogPageView: View {
+    @EnvironmentObject private var localization: LocalizationController
     @State private var activityLog = ActivityLogStoreDocument()
     @State private var statusMessage = ""
 
@@ -1177,14 +1292,14 @@ struct ActivityLogPageView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Activity Log")
+                    Text(localization.text(.activityLog))
                         .font(.title2)
                         .fontWeight(.semibold)
-                    Text("Recent automation, apply, import, and diagnostic events.")
+                    Text(localization.text(.recentActivityDescription))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Refresh") {
+                Button(localization.text(.refresh)) {
                     loadActivityLog()
                 }
             }
@@ -1194,7 +1309,7 @@ struct ActivityLogPageView: View {
                     Image(systemName: "list.bullet.rectangle")
                         .font(.system(size: 36))
                         .foregroundStyle(.secondary)
-                    Text("No recent activity")
+                    Text(localization.text(.noRecentActivity))
                         .font(.headline)
                         .foregroundStyle(.secondary)
                 }
@@ -1202,7 +1317,7 @@ struct ActivityLogPageView: View {
             } else {
                 List(activityLog.entries.suffix(50).reversed()) { entry in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(ActivityLogRenderer.title(for: entry, language: .english))
+                        Text(ActivityLogRenderer.title(for: entry, language: localization.preference))
                             .fontWeight(.medium)
                         Text(ActivityLogRenderer.details(for: entry))
                             .font(.caption)
@@ -1233,6 +1348,7 @@ struct ActivityLogPageView: View {
 }
 
 struct AboutPageView: View {
+    @EnvironmentObject private var localization: LocalizationController
     private let catalog = AcknowledgementsCatalog.current()
 
     var body: some View {
@@ -1247,7 +1363,7 @@ struct AboutPageView: View {
 
             Divider()
 
-            Text("Acknowledgements")
+            Text(localization.text(.acknowledgements))
                 .font(.headline)
 
             ForEach(catalog.items) { item in
@@ -1267,6 +1383,7 @@ struct AboutPageView: View {
 
 struct SettingsView: View {
     @Environment(\.openURL) private var openURL
+    @EnvironmentObject private var localization: LocalizationController
     @AppStorage(DockIconPreference.userDefaultsKey) private var showDockIcon = false
     @State private var settings = AppSettings()
     @State private var activityLog = ActivityLogStoreDocument()
@@ -1274,11 +1391,11 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Backend") {
-                LabeledContent("Source", value: "Bundled")
+            Section(localization.text(.backend)) {
+                LabeledContent(localization.text(.source), value: "Bundled")
                 LabeledContent("displayplacer", value: DisplayplacerBackend.bundledMetadata.version)
-                LabeledContent("Architecture", value: DisplayplacerBackendArchitecture.current.rawValue)
-                TextField("Custom backend path", text: Binding(
+                LabeledContent(localization.text(.architecture), value: DisplayplacerBackendArchitecture.current.rawValue)
+                TextField(localization.text(.customBackendPath), text: Binding(
                     get: { settings.backendSelection.customPath ?? "" },
                     set: { newValue in
                         settings.backendSelection = BackendSelection(
@@ -1290,8 +1407,8 @@ struct SettingsView: View {
                 ))
             }
 
-            Section("Automation") {
-                Toggle("Launch at Login", isOn: Binding(
+            Section(localization.text(.automation)) {
+                Toggle(localization.text(.launchAtLogin), isOn: Binding(
                     get: { settings.launchAtLogin },
                     set: { newValue in
                         settings.launchAtLogin = newValue
@@ -1300,13 +1417,13 @@ struct SettingsView: View {
                     }
                 ))
 
-                Toggle("Automatic Apply", isOn: Binding(
+                Toggle(localization.text(.automaticApply), isOn: Binding(
                     get: { settings.automaticApplyEnabled },
                     set: { settings.automaticApplyEnabled = $0; saveSettings() }
                 ))
 
                 Stepper(
-                    "Countdown: \(settings.automaticApplyCountdownSeconds)s",
+                    localization.countdownLabel(seconds: settings.automaticApplyCountdownSeconds),
                     value: Binding(
                         get: { settings.automaticApplyCountdownSeconds },
                         set: { settings.automaticApplyCountdownSeconds = $0; saveSettings() }
@@ -1315,17 +1432,21 @@ struct SettingsView: View {
                 )
             }
 
-            Section("Appearance") {
-                Toggle("Show Dock icon", isOn: $showDockIcon)
+            Section(localization.text(.appearance)) {
+                Toggle(localization.text(.showDockIcon), isOn: $showDockIcon)
                     .onChange(of: showDockIcon) { newValue in
                         settings.showDockIcon = newValue
                         DockIconController.apply(showDockIcon: newValue)
                         saveSettings()
                     }
 
-                Picker("Language", selection: Binding(
+                Picker(localization.text(.language), selection: Binding(
                     get: { settings.language },
-                    set: { settings.language = $0; saveSettings() }
+                    set: {
+                        settings.language = $0
+                        localization.preference = $0
+                        saveSettings()
+                    }
                 )) {
                     ForEach(LanguagePreference.allCases, id: \.self) { language in
                         Text(language.title).tag(language)
@@ -1333,23 +1454,25 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Shortcuts") {
-                Text("Shortcuts are optional. Permission is requested only after a shortcut is configured.")
+            Section(localization.text(.shortcuts)) {
+                Text(localization.text(.shortcutsDescription))
                     .foregroundStyle(.secondary)
-                Text("Configured shortcuts: \(settings.shortcutBindings.filter { $0.keyEquivalent?.isEmpty == false }.count)")
+                Text(localization.configuredShortcuts(
+                    settings.shortcutBindings.filter { $0.keyEquivalent?.isEmpty == false }.count
+                ))
                     .foregroundStyle(.secondary)
             }
 
-            Section("Updates") {
-                LabeledContent("Version", value: AboutMetadata.current().displayString)
-                Button("Check for Updates") {
+            Section(localization.text(.updates)) {
+                LabeledContent(localization.text(.version), value: AboutMetadata.current().displayString)
+                Button(localization.text(.checkForUpdates)) {
                     openURL(ReleaseConfiguration.production().sparklePolicy.feedURL)
                 }
-                Text("Automatic update checks are optional and never install silently.")
+                Text(localization.text(.updateChecksDescription))
                     .foregroundStyle(.secondary)
             }
 
-            Section("Acknowledgements") {
+            Section(localization.text(.acknowledgements)) {
                 Text(AcknowledgementsCatalog.current().independenceNotice)
                     .foregroundStyle(.secondary)
 
@@ -1360,26 +1483,26 @@ struct SettingsView: View {
                         Text("\(item.licenseName) - \(item.modificationStatus.title)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Button("Open Project") {
+                        Button(localization.text(.openProject)) {
                             openURL(item.projectURL)
                         }
                     }
                 }
             }
 
-            Section("Activity Log") {
+            Section(localization.text(.activityLog)) {
                 if recentActivityEntries.isEmpty {
-                    Text("No recent activity.")
+                    Text(localization.text(.noRecentActivity))
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(recentActivityEntries) { entry in
                         VStack(alignment: .leading, spacing: 6) {
-                            Text(ActivityLogRenderer.title(for: entry, language: settings.language))
+                            Text(ActivityLogRenderer.title(for: entry, language: localization.preference))
                                 .fontWeight(.medium)
-                            Text(ActivityLogRenderer.summary(for: entry, language: settings.language))
+                            Text(ActivityLogRenderer.summary(for: entry, language: localization.preference))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            Button("Copy Details") {
+                            Button(localization.text(.copyDetails)) {
                                 copy(ActivityLogRenderer.copyableDiagnostics(for: entry))
                             }
                         }
@@ -1387,17 +1510,17 @@ struct SettingsView: View {
                 }
 
                 HStack {
-                    Button("Refresh") {
+                    Button(localization.text(.refresh)) {
                         loadActivityLog()
                     }
-                    Button("Copy Diagnostic Export") {
+                    Button(localization.text(.copyDiagnosticExport)) {
                         copyDiagnosticExport()
                     }
                 }
             }
 
             if !statusMessage.isEmpty {
-                Section("Status") {
+                Section(localization.text(.status)) {
                     Text(statusMessage)
                         .foregroundStyle(.secondary)
                 }
@@ -1419,6 +1542,7 @@ struct SettingsView: View {
     private func loadSettings() {
         do {
             settings = try DisplayRecallStore.live().loadSettings().settings
+            localization.preference = settings.language
             showDockIcon = settings.showDockIcon
         } catch {
             statusMessage = error.localizedDescription
@@ -1474,6 +1598,6 @@ struct SettingsView: View {
     private func copy(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        statusMessage = "Copied."
+        statusMessage = localization.status("Copied.", chinese: "已复制。")
     }
 }

@@ -12,15 +12,15 @@ Implement app-wide English and Simplified Chinese localization coverage with imm
 
 ## Acceptance criteria
 
-- [ ] All visible user-facing strings in the main window, menu bar menu, pending panel, settings, activity log, about, import/export, and profile management surfaces use the app localization layer.
-- [ ] English and Simplified Chinese translations are complete for the visible UI.
-- [ ] The language setting supports System, English, and Simplified Chinese.
-- [ ] Changing language in Settings immediately updates already-open SwiftUI surfaces.
-- [ ] Menu bar content uses the selected language the next time it opens, without relaunch.
-- [ ] Pending and other floating panels update their text while visible when the language changes.
-- [ ] Technical fields remain unlocalized: commands, paths, IDs, stdout, stderr, backend names, and raw fingerprints.
-- [ ] System language is resolved when System is selected; live OS language-change listening is not required.
-- [ ] Existing tests continue to pass, and localization tests cover key English/Chinese strings plus technical-field preservation.
+- [x] All visible user-facing strings in the main window, menu bar menu, pending panel, settings, activity log, about, import/export, and profile management surfaces use the app localization layer.
+- [x] English and Simplified Chinese translations are complete for the visible UI.
+- [x] The language setting supports System, English, and Simplified Chinese.
+- [x] Changing language in Settings immediately updates already-open SwiftUI surfaces.
+- [x] Menu bar content uses the selected language the next time it opens, without relaunch.
+- [x] Pending and other floating panels update their text while visible when the language changes.
+- [x] Technical fields remain unlocalized: commands, paths, IDs, stdout, stderr, backend names, and raw fingerprints.
+- [x] System language is resolved when System is selected; live OS language-change listening is not required.
+- [x] Existing tests continue to pass, and localization tests cover key English/Chinese strings plus technical-field preservation.
 
 ## Blocked by
 
