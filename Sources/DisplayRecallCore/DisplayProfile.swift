@@ -19,6 +19,8 @@ public struct DisplayProfile: Equatable, Identifiable, Sendable, Codable {
     public var backendVersion: String
     public var createdByAppVersion: String
     public var updatedByAppVersion: String
+    public var isCommandEdited: Bool
+    public var importedNeedsFirstApplyConfirmation: Bool
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -33,6 +35,8 @@ public struct DisplayProfile: Equatable, Identifiable, Sendable, Codable {
         backendVersion: String = DisplayplacerBackend.bundledMetadata.version,
         createdByAppVersion: String = AppConfiguration.version,
         updatedByAppVersion: String = AppConfiguration.version,
+        isCommandEdited: Bool = false,
+        importedNeedsFirstApplyConfirmation: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -46,6 +50,8 @@ public struct DisplayProfile: Equatable, Identifiable, Sendable, Codable {
         self.backendVersion = backendVersion
         self.createdByAppVersion = createdByAppVersion
         self.updatedByAppVersion = updatedByAppVersion
+        self.isCommandEdited = isCommandEdited
+        self.importedNeedsFirstApplyConfirmation = importedNeedsFirstApplyConfirmation
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

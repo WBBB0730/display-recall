@@ -12,15 +12,15 @@ Add risk classification, confirmation, restore point, keep/restore countdown, an
 
 ## Acceptance criteria
 
-- [ ] Profile applies create a latest restore point before executing.
-- [ ] Edited commands, imported first applies, non-matching setups, missing display IDs, display-disabling commands, and uncertain mirrored parsing are treated as high risk.
-- [ ] High-risk applies show a confirmation before execution.
-- [ ] High-risk applies show a 15-second keep/restore prompt after execution.
-- [ ] Timeout from the keep/restore prompt restores the previous layout.
-- [ ] Normal matching applies do not show the keep/restore prompt.
-- [ ] Failed applies show failure feedback with manual restore, copy log, and edit profile actions.
-- [ ] Failed automatic applies stop the current event flow instead of retrying in a loop.
-- [ ] Restore operation updates the latest restore point so one undo of restore is possible.
+- [x] Profile applies create a latest restore point before executing.
+- [x] Edited commands, imported first applies, non-matching setups, missing display IDs, display-disabling commands, and uncertain mirrored parsing are treated as high risk.
+- [x] High-risk applies show a confirmation before execution.
+- [x] High-risk applies show a 15-second keep/restore prompt after execution.
+- [x] Timeout from the keep/restore prompt restores the previous layout.
+- [x] Normal matching applies do not show the keep/restore prompt.
+- [x] Failed applies show failure feedback with manual restore, copy log, and edit profile actions.
+- [x] Failed automatic applies stop the current event flow instead of retrying in a loop.
+- [x] Restore operation updates the latest restore point so one undo of restore is possible.
 
 ## Blocked by
 
