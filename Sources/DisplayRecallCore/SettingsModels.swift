@@ -53,6 +53,9 @@ public enum AppLocalizationKey: String, CaseIterable, Equatable, Sendable {
     case createProfile
     case customBackendPath
     case currentDisplaySetup
+    case dangerZone
+    case deleteProfile
+    case differentSetup
     case displayRecall
     case displayRecallSetupDescription
     case displaySetup
@@ -62,6 +65,9 @@ public enum AppLocalizationKey: String, CaseIterable, Equatable, Sendable {
     case importProfiles
     case language
     case launchAtLogin
+    case highRisk
+    case matchesCurrentSetup
+    case needsRebind
     case noMatchingProfiles
     case name
     case noProfileSelected
@@ -82,6 +88,7 @@ public enum AppLocalizationKey: String, CaseIterable, Equatable, Sendable {
     case recentActivityDescription
     case saveCommand
     case saveCurrentLayout
+    case searchProfiles
     case settings
     case setDefault
     case shortcuts
@@ -147,6 +154,9 @@ public enum AppLocalization {
             .createProfile: "Create Profile",
             .customBackendPath: "Custom backend path",
             .currentDisplaySetup: "Current Display Setup",
+            .dangerZone: "Danger Zone",
+            .deleteProfile: "Delete Profile",
+            .differentSetup: "Different setup",
             .displayRecall: "Display Recall",
             .displayRecallSetupDescription: "Display Recall will verify its bundled displayplacer backend, then save your current display layout as the first profile.",
             .displaySetup: "Display Setup",
@@ -156,6 +166,9 @@ public enum AppLocalization {
             .importProfiles: "Import",
             .language: "Language",
             .launchAtLogin: "Launch at Login",
+            .highRisk: "High risk",
+            .matchesCurrentSetup: "Matches current setup",
+            .needsRebind: "Needs rebind",
             .noMatchingProfiles: "No matching profiles",
             .name: "Name",
             .noProfileSelected: "No Profile Selected",
@@ -176,6 +189,7 @@ public enum AppLocalization {
             .recentActivityDescription: "Recent automation, apply, import, and diagnostic events.",
             .saveCommand: "Save Command",
             .saveCurrentLayout: "Save Current Layout",
+            .searchProfiles: "Search profiles",
             .settings: "Settings",
             .setDefault: "Set Default",
             .shortcuts: "Shortcuts",
@@ -213,6 +227,9 @@ public enum AppLocalization {
             .createProfile: "创建配置",
             .customBackendPath: "自定义后端路径",
             .currentDisplaySetup: "当前显示器组合",
+            .dangerZone: "危险区域",
+            .deleteProfile: "删除配置",
+            .differentSetup: "不同组合",
             .displayRecall: "Display Recall",
             .displayRecallSetupDescription: "Display Recall 会验证内置 displayplacer 后端，然后把当前显示器布局保存为第一个配置。",
             .displaySetup: "显示器组合",
@@ -222,6 +239,9 @@ public enum AppLocalization {
             .importProfiles: "导入",
             .language: "语言",
             .launchAtLogin: "登录时启动",
+            .highRisk: "高风险",
+            .matchesCurrentSetup: "匹配当前组合",
+            .needsRebind: "需要重新绑定",
             .noMatchingProfiles: "没有匹配的配置",
             .name: "名称",
             .noProfileSelected: "未选择配置",
@@ -242,6 +262,7 @@ public enum AppLocalization {
             .recentActivityDescription: "最近的自动化、应用、导入和诊断事件。",
             .saveCommand: "保存命令",
             .saveCurrentLayout: "保存当前布局",
+            .searchProfiles: "搜索配置",
             .settings: "设置",
             .setDefault: "设为默认",
             .shortcuts: "快捷键",

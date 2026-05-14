@@ -69,6 +69,45 @@ final class ProfileManagementTests: XCTestCase {
         XCTAssertEqual(result.stdout, "ok")
     }
 
+    func testSearchProfilesMatchesNameNotesAndDisplaySummary() {
+        let home = DisplayProfile.fixture(name: "Home", notes: "Standing desk", summary: "27 inch external screen")
+        let travel = DisplayProfile.fixture(name: "Travel", notes: "Hotel", summary: "Built-in display")
+
+        XCTAssertEqual(ProfileListFilter.filter([home, travel], query: "hotel").map(\.name), ["Travel"])
+        XCTAssertEqual(ProfileListFilter.filter([home, travel], query: "27 inch").map(\.name), ["Home"])
+        XCTAssertEqual(ProfileListFilter.filter([home, travel], query: "").map(\.name), ["Home", "Travel"])
+    }
+
+    func testDeleteProfileCleansDefaultRulesShortcutsAndCreatesLogEntry() throws {
+        let profile = DisplayProfile.fixture()
+        let other = DisplayProfile.fixture(
+            id: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
+            name: "Other"
+        )
+        let deletion = try ProfileDeletion.delete(
+            profileID: profile.id,
+            profilesDocument: ProfileStoreDocument(
+                profiles: [profile, other],
+                automaticDefaultRules: [
+                    AutomaticDefaultRule(
+                        displaySetupFingerprint: profile.displaySetupFingerprint,
+                        profileId: profile.id
+                    )
+                ]
+            ),
+            settings: AppSettings(shortcutBindings: [
+                ShortcutBinding(profileId: profile.id, keyEquivalent: "⌘⇧1"),
+                ShortcutBinding(profileId: other.id, keyEquivalent: "⌘⇧2")
+            ])
+        )
+
+        XCTAssertEqual(deletion.profilesDocument.profiles, [other])
+        XCTAssertTrue(deletion.profilesDocument.automaticDefaultRules.isEmpty)
+        XCTAssertEqual(deletion.settings.shortcutBindings.map(\.profileId), [other.id])
+        XCTAssertEqual(deletion.logEntry.type, .profileDeleted)
+        XCTAssertEqual(deletion.nextSelectedProfileID, other.id)
+    }
+
     private static let displayListOutput = """
     Persistent screen id: AAA
     Type: 27 inch external screen
@@ -84,13 +123,19 @@ final class ProfileManagementTests: XCTestCase {
 }
 
 private extension DisplayProfile {
-    static func fixture() -> DisplayProfile {
+    static func fixture(
+        id: UUID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
+        name: String = "Home",
+        notes: String = "",
+        summary: String = "27 inch external screen"
+    ) -> DisplayProfile {
         DisplayProfile(
-            id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
-            name: "Home",
+            id: id,
+            name: name,
+            notes: notes,
             command: #"displayplacer "id:AAA res:1920x1080 enabled:true origin:(0,0) degree:0""#,
             displaySetupFingerprint: DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1"),
-            displaySummary: "27 inch external screen"
+            displaySummary: summary
         )
     }
 }

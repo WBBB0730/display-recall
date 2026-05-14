@@ -92,3 +92,59 @@ public struct ProfileManager: Sendable {
         return index
     }
 }
+
+public enum ProfileListFilter {
+    public static func filter(_ profiles: [DisplayProfile], query: String) -> [DisplayProfile] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return profiles
+        }
+
+        return profiles.filter { profile in
+            profile.name.localizedCaseInsensitiveContains(trimmed)
+                || profile.notes.localizedCaseInsensitiveContains(trimmed)
+                || profile.displaySummary.localizedCaseInsensitiveContains(trimmed)
+        }
+    }
+}
+
+public struct ProfileDeletionResult: Equatable, Sendable {
+    public let profilesDocument: ProfileStoreDocument
+    public let settings: AppSettings
+    public let logEntry: ActivityLogEntry
+    public let nextSelectedProfileID: UUID?
+}
+
+public enum ProfileDeletion {
+    public static func delete(
+        profileID: UUID,
+        profilesDocument: ProfileStoreDocument,
+        settings: AppSettings
+    ) throws -> ProfileDeletionResult {
+        guard let deletedProfile = profilesDocument.profiles.first(where: { $0.id == profileID }) else {
+            throw ProfileManagerError.profileNotFound
+        }
+
+        let remainingProfiles = profilesDocument.profiles.filter { $0.id != profileID }
+        let remainingRules = profilesDocument.automaticDefaultRules.filter { $0.profileId != profileID }
+        var updatedSettings = settings
+        updatedSettings.shortcutBindings.removeAll { $0.profileId == profileID }
+
+        let updatedDocument = ProfileStoreDocument(
+            schemaVersion: profilesDocument.schemaVersion,
+            profiles: remainingProfiles,
+            automaticDefaultRules: remainingRules
+        )
+
+        return ProfileDeletionResult(
+            profilesDocument: updatedDocument,
+            settings: updatedSettings,
+            logEntry: ActivityLogEntry(
+                type: .profileDeleted,
+                trigger: .manual,
+                profileSnapshot: ProfileSnapshot(id: deletedProfile.id, name: deletedProfile.name)
+            ),
+            nextSelectedProfileID: remainingProfiles.first?.id
+        )
+    }
+}

@@ -12,6 +12,7 @@ public enum ActivityLogEventType: String, CaseIterable, Equatable, Sendable, Cod
     case restored
     case importExport
     case backendVerification
+    case profileDeleted
 }
 
 public enum ActivityTrigger: String, Equatable, Sendable, Codable {
@@ -169,6 +170,8 @@ private func localizedText(
             ("导入或导出", "配置导入或导出已完成")
         case .backendVerification:
             ("后端验证", "displayplacer 后端验证已完成")
+        case .profileDeleted:
+            ("已删除配置", "配置已删除")
         }
 
     case .system, .english:
@@ -195,6 +198,8 @@ private func localizedText(
             ("Import or Export", "Profile import or export completed")
         case .backendVerification:
             ("Backend Verification", "The displayplacer backend was verified")
+        case .profileDeleted:
+            ("Profile Deleted", "The profile was deleted")
         }
     }
 }

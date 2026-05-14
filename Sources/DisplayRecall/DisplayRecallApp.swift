@@ -839,28 +839,48 @@ struct ProfilesContentView: View {
     @EnvironmentObject private var localization: LocalizationController
     @State private var document = ProfileStoreDocument()
     @State private var selectedProfileIDs = Set<UUID>()
+    @State private var searchQuery = ""
+    @State private var currentFingerprint: DisplaySetupFingerprint?
     @State private var statusMessage = ""
+
+    private var visibleProfiles: [DisplayProfile] {
+        ProfileListFilter.filter(document.profiles, query: searchQuery)
+    }
 
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedProfileIDs) {
-                ForEach(document.profiles) { profile in
+                ForEach(visibleProfiles) { profile in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(profile.name)
                             .fontWeight(.medium)
                         Text(profile.displaySummary.isEmpty ? profile.displaySetupFingerprint.rawValue : profile.displaySummary)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        if isAutomaticDefault(profile) {
-                            Label(localization.text(.automaticDefault), systemImage: "checkmark.circle")
-                                .font(.caption)
-                                .foregroundStyle(.green)
+                        HStack(spacing: 8) {
+                            if profile.displaySetupFingerprint == currentFingerprint {
+                                Label(localization.text(.matchesCurrentSetup), systemImage: "checkmark.circle")
+                                    .foregroundStyle(.green)
+                            } else {
+                                Label(localization.text(.differentSetup), systemImage: "circle")
+                                    .foregroundStyle(.secondary)
+                            }
+                            if isAutomaticDefault(profile) {
+                                Label(localization.text(.automaticDefault), systemImage: "bolt.circle")
+                                    .foregroundStyle(.blue)
+                            }
+                            if profile.importedNeedsFirstApplyConfirmation || profile.isCommandEdited {
+                                Label(localization.text(.highRisk), systemImage: "exclamationmark.triangle")
+                                    .foregroundStyle(.orange)
+                            }
                         }
+                        .font(.caption)
                     }
                     .tag(profile.id)
                 }
             }
             .navigationTitle(localization.text(.profiles))
+            .searchable(text: $searchQuery, prompt: localization.text(.searchProfiles))
             .toolbar {
                 Button {
                     Task {
@@ -909,6 +929,9 @@ struct ProfilesContentView: View {
                     onExport: { profile in
                         exportProfile(profile)
                     },
+                    onDelete: { profile in
+                        deleteProfile(profile)
+                    },
                     onSaveCommand: { profile, command in
                         updateCommand(profile, command: command)
                     }
@@ -932,6 +955,7 @@ struct ProfilesContentView: View {
         }
         .task {
             loadProfiles()
+            await refreshCurrentFingerprint()
         }
     }
 
@@ -968,6 +992,14 @@ struct ProfilesContentView: View {
         } catch {
             statusMessage = error.localizedDescription
         }
+    }
+
+    private func refreshCurrentFingerprint() async {
+        guard let service = try? FirstRunSetupService.live(),
+              case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
+            return
+        }
+        currentFingerprint = layout.displaySetupFingerprint
     }
 
     private func saveCurrentLayout() async {
@@ -1087,6 +1119,41 @@ struct ProfilesContentView: View {
             ? .all
             : .multiple(Array(selectedProfileIDs))
         export(selection: selection, suggestedName: "Display Recall Profiles")
+    }
+
+    private func deleteProfile(_ profile: DisplayProfile) {
+        let alert = NSAlert()
+        alert.messageText = localization.status(
+            "Delete \(profile.name)?",
+            chinese: "删除 \(profile.name)？"
+        )
+        alert.informativeText = localization.status(
+            "This deletes the profile and removes related automatic default rules and shortcuts.",
+            chinese: "这会删除配置，并清理相关自动默认规则和快捷键。"
+        )
+        alert.addButton(withTitle: localization.text(.deleteProfile))
+        alert.addButton(withTitle: localization.status("Cancel", chinese: "取消"))
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return
+        }
+
+        do {
+            let store = try DisplayRecallStore.live()
+            let settings = try store.loadSettings().settings
+            let result = try ProfileDeletion.delete(
+                profileID: profile.id,
+                profilesDocument: document,
+                settings: settings
+            )
+            document = result.profilesDocument
+            selectedProfileIDs = Set(result.nextSelectedProfileID.map { [$0] } ?? [])
+            try store.save(result.profilesDocument)
+            try store.save(SettingsStoreDocument(settings: result.settings))
+            try ActivityLogRecorder(store: store).record(result.logEntry)
+            statusMessage = localization.status("Deleted profile.", chinese: "已删除配置。")
+        } catch {
+            statusMessage = error.localizedDescription
+        }
     }
 
     private func exportProfile(_ profile: DisplayProfile) {
@@ -1220,12 +1287,38 @@ struct ProfileDetailView: View {
     let onClearDefault: (DisplayProfile) -> Void
     let onRebind: (DisplayProfile) -> Void
     let onExport: (DisplayProfile) -> Void
+    let onDelete: (DisplayProfile) -> Void
     let onSaveCommand: (DisplayProfile, String) -> Void
 
     @State private var commandDraft = ""
+    @State private var showsAdvancedCommand = false
 
     var body: some View {
         Form {
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(profile.name)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    Text(profile.displaySummary.isEmpty ? profile.displaySetupFingerprint.rawValue : profile.displaySummary)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Label(
+                            isAutomaticDefault ? localization.text(.automaticDefault) : localization.text(.differentSetup),
+                            systemImage: isAutomaticDefault ? "bolt.circle.fill" : "circle"
+                        )
+                        if profile.importedNeedsFirstApplyConfirmation || profile.isCommandEdited {
+                            Label(localization.text(.highRisk), systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                    Button(localization.text(.apply)) {
+                        onApply(profile)
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+
             Section(localization.text(.profile)) {
                 TextField(localization.text(.name), text: $profile.name)
                 TextField(localization.text(.notes), text: $profile.notes, axis: .vertical)
@@ -1246,28 +1339,34 @@ struct ProfileDetailView: View {
                 }
             }
 
-            Section(localization.text(.advancedCommand)) {
-                TextEditor(text: $commandDraft)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(minHeight: 120)
-                    .onAppear {
-                        commandDraft = profile.command
-                    }
-                    .onChange(of: profile.id) { _ in
-                        commandDraft = profile.command
-                    }
+            Section {
+                DisclosureGroup(localization.text(.advancedCommand), isExpanded: $showsAdvancedCommand) {
+                    TextEditor(text: $commandDraft)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(minHeight: 120)
+                        .onAppear {
+                            commandDraft = profile.command
+                        }
+                        .onChange(of: profile.id) { _ in
+                            commandDraft = profile.command
+                        }
 
-                HStack {
-                    Button(localization.text(.saveCommand)) {
-                        onSaveCommand(profile, commandDraft)
+                    HStack {
+                        Button(localization.text(.saveCommand)) {
+                            onSaveCommand(profile, commandDraft)
+                        }
+                        Button(localization.text(.export)) {
+                            onExport(profile)
+                        }
                     }
-                    Button(localization.text(.export)) {
-                        onExport(profile)
-                    }
-                    Button(localization.text(.apply)) {
-                        onApply(profile)
-                    }
-                    .keyboardShortcut(.defaultAction)
+                }
+            }
+
+            Section(localization.text(.dangerZone)) {
+                Button(role: .destructive) {
+                    onDelete(profile)
+                } label: {
+                    Label(localization.text(.deleteProfile), systemImage: "trash")
                 }
             }
 
