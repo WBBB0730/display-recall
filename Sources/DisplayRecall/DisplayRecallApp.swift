@@ -343,17 +343,16 @@ struct MenuBarContentView: View {
     }
 
     private func profileButton(_ item: MenuBarProfileItem) -> some View {
-        Button {
-            Task {
-                await apply(item)
+        Toggle(isOn: Binding(
+            get: { item.isAutomaticDefault },
+            set: { _ in
+                Task {
+                    await apply(item)
+                }
             }
-        } label: {
+        )) {
             HStack {
                 Text(item.profile.name)
-                if item.isAutomaticDefault {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                }
                 if item.requiresHighRiskApply {
                     Image(systemName: "exclamationmark.triangle")
                         .foregroundStyle(.orange)
