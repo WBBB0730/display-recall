@@ -1506,6 +1506,57 @@ private struct CreateProfileSheetState: Identifiable {
     let makeAutomaticDefault: Bool
 }
 
+private enum RenameTarget {
+    case profile(UUID)
+    case displaySetupGroup(UUID)
+}
+
+private struct RenameSheetState: Identifiable {
+    let id = UUID()
+    let title: String
+    let initialName: String
+    let target: RenameTarget
+}
+
+private struct RenameSheet: View {
+    @EnvironmentObject private var localization: LocalizationController
+    let state: RenameSheetState
+    let onCancel: () -> Void
+    let onSave: (String) -> Void
+
+    @State private var name: String
+
+    init(
+        state: RenameSheetState,
+        onCancel: @escaping () -> Void,
+        onSave: @escaping (String) -> Void
+    ) {
+        self.state = state
+        self.onCancel = onCancel
+        self.onSave = onSave
+        _name = State(initialValue: state.initialName)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(state.title)
+                .font(.headline)
+            TextField(localization.text(.name), text: $name)
+                .textFieldStyle(.roundedBorder)
+            HStack {
+                Spacer()
+                Button(localization.text(.cancel), action: onCancel)
+                Button(localization.text(.save)) {
+                    onSave(name)
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(18)
+        .frame(width: 320)
+    }
+}
+
 private struct CreateProfileSheet: View {
     @EnvironmentObject private var localization: LocalizationController
     let state: CreateProfileSheetState
@@ -1771,6 +1822,7 @@ struct ProfilesContentView: View {
     @State private var exportSheet: ProfileExportSheetState?
     @State private var importPreviewSheet: ProfileImportPreviewSheetState?
     @State private var createProfileSheet: CreateProfileSheetState?
+    @State private var renameSheet: RenameSheetState?
     @State private var expandedGroupIDs = Set<UUID>()
     @State private var didInitializeExpandedGroups = false
 
@@ -1831,6 +1883,18 @@ struct ProfilesContentView: View {
                                                     isOn: automaticApplyBinding(for: profile)
                                                 )
                                                 .toggleStyle(.switch)
+                                                Menu {
+                                                    Button(localization.status("Rename...", chinese: "重命名…")) {
+                                                        renameSheet = RenameSheetState(
+                                                            title: localization.status("Rename Configuration", chinese: "重命名配置"),
+                                                            initialName: profile.name,
+                                                            target: .profile(profile.id)
+                                                        )
+                                                    }
+                                                } label: {
+                                                    Image(systemName: "ellipsis.circle")
+                                                }
+                                                .menuStyle(.borderlessButton)
                                             }
                                             .padding(.vertical, 8)
                                         }
@@ -1846,6 +1910,19 @@ struct ProfilesContentView: View {
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
+                                    Spacer()
+                                    Menu {
+                                        Button(localization.status("Rename...", chinese: "重命名…")) {
+                                            renameSheet = RenameSheetState(
+                                                title: localization.status("Rename Display Setup", chinese: "重命名显示器组合"),
+                                                initialName: section.group.name,
+                                                target: .displaySetupGroup(section.group.id)
+                                            )
+                                        }
+                                    } label: {
+                                        Image(systemName: "ellipsis.circle")
+                                    }
+                                    .menuStyle(.borderlessButton)
                                 }
                             }
                             .padding(12)
@@ -1908,6 +1985,19 @@ struct ProfilesContentView: View {
             )
             .environmentObject(localization)
         }
+        .sheet(item: $renameSheet) { sheet in
+            RenameSheet(
+                state: sheet,
+                onCancel: {
+                    renameSheet = nil
+                },
+                onSave: { name in
+                    renameSheet = nil
+                    rename(sheet.target, to: name)
+                }
+            )
+            .environmentObject(localization)
+        }
     }
 
     private func expandedBinding(for group: DisplaySetupGroup) -> Binding<Bool> {
@@ -1945,6 +2035,22 @@ struct ProfilesContentView: View {
                 }
             }
         )
+    }
+
+    private func rename(_ target: RenameTarget, to name: String) {
+        do {
+            var manager = ProfileManager(document: document)
+            switch target {
+            case let .profile(id):
+                try manager.rename(profileID: id, to: name)
+            case let .displaySetupGroup(id):
+                try manager.renameDisplaySetupGroup(groupID: id, to: name)
+            }
+            document = manager.document
+            saveDocument()
+        } catch {
+            statusMessage = error.localizedDescription
+        }
     }
 
     private var selectedProfileBinding: Binding<DisplayProfile>? {

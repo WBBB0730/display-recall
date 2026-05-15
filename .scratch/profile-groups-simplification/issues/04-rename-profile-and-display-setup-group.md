@@ -12,23 +12,23 @@ Add lightweight rename flows for both profiles and display setup groups. Renamin
 
 ## Acceptance criteria
 
-- [ ] Each profile row has a More menu that includes Rename.
-- [ ] Each display setup group header has a More menu that includes Rename.
-- [ ] Profile rename uses a small focused dialog with one text field.
-- [ ] Display setup group rename uses the same dialog pattern.
-- [ ] Rename dialogs have Cancel and Save actions.
-- [ ] Empty or whitespace-only rename submissions do not replace the existing name.
-- [ ] Renaming a profile updates the profile and preserves all other profile data.
-- [ ] Renaming a display setup group updates the group and preserves the group fingerprint.
-- [ ] Renamed display setup groups keep their names when all profiles in the group are deleted.
-- [ ] Existing renamed profile and group names do not change when language changes.
-- [ ] The main Profile UI does not expose inline editing.
-- [ ] The main Profile UI does not reintroduce notes editing.
-- [ ] The main Profile UI does not reintroduce raw command editing.
-- [ ] User-facing strings are localized in English and Simplified Chinese.
-- [ ] Tests cover profile rename.
-- [ ] Tests cover display setup group rename.
-- [ ] Tests cover preserving a renamed empty display setup group.
+- [x] Each profile row has a More menu that includes Rename.
+- [x] Each display setup group header has a More menu that includes Rename.
+- [x] Profile rename uses a small focused dialog with one text field.
+- [x] Display setup group rename uses the same dialog pattern.
+- [x] Rename dialogs have Cancel and Save actions.
+- [x] Empty or whitespace-only rename submissions do not replace the existing name.
+- [x] Renaming a profile updates the profile and preserves all other profile data.
+- [x] Renaming a display setup group updates the group and preserves the group fingerprint.
+- [x] Renamed display setup groups keep their names when all profiles in the group are deleted.
+- [x] Existing renamed profile and group names do not change when language changes.
+- [x] The main Profile UI does not expose inline editing.
+- [x] The main Profile UI does not reintroduce notes editing.
+- [x] The main Profile UI does not reintroduce raw command editing.
+- [x] User-facing strings are localized in English and Simplified Chinese.
+- [x] Tests cover profile rename.
+- [x] Tests cover display setup group rename.
+- [x] Tests cover preserving a renamed empty display setup group.
 
 ## Blocked by
 

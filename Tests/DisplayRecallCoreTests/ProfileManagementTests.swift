@@ -77,6 +77,26 @@ final class ProfileManagementTests: XCTestCase {
         XCTAssertThrowsError(try manager.updateCommand(profileID: profile.id, command: "not a command"))
     }
 
+    func testRenameDisplaySetupGroupKeepsFingerprintAndIgnoresBlankNames() throws {
+        let fingerprint = DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1")
+        let group = DisplaySetupGroup(
+            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+            fingerprint: fingerprint,
+            name: "Display Set 1",
+            createdAt: Date(timeIntervalSince1970: 10),
+            updatedAt: Date(timeIntervalSince1970: 20)
+        )
+        var manager = ProfileManager(document: ProfileStoreDocument(displaySetupGroups: [group]))
+
+        try manager.renameDisplaySetupGroup(groupID: group.id, to: "Office")
+        try manager.renameDisplaySetupGroup(groupID: group.id, to: "   ")
+
+        XCTAssertEqual(manager.document.displaySetupGroups[0].name, "Office")
+        XCTAssertEqual(manager.document.displaySetupGroups[0].fingerprint, fingerprint)
+        XCTAssertEqual(manager.document.displaySetupGroups[0].createdAt, group.createdAt)
+        XCTAssertGreaterThan(manager.document.displaySetupGroups[0].updatedAt, group.updatedAt)
+    }
+
     func testDefaultRuleCanBeMarkedUnmarkedAndProfileCanBeRebound() throws {
         let profile = DisplayProfile.fixture()
         let newFingerprint = DisplaySetupFingerprint(rawValue: "BBB|builtIn:false|count:1")

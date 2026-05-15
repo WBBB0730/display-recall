@@ -2,6 +2,7 @@ import Foundation
 
 public enum ProfileManagerError: Error, Equatable, Sendable {
     case profileNotFound
+    case displaySetupGroupNotFound
     case invalidCommand
 }
 
@@ -58,6 +59,18 @@ public struct ProfileManager: Sendable {
         document.profiles[index].notes = notes
         document.profiles[index].updatedAt = Date()
         document.profiles[index].updatedByAppVersion = AppConfiguration.version
+    }
+
+    public mutating func renameDisplaySetupGroup(groupID: UUID, to name: String) throws {
+        guard let index = document.displaySetupGroups.firstIndex(where: { $0.id == groupID }) else {
+            throw ProfileManagerError.displaySetupGroupNotFound
+        }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return
+        }
+        document.displaySetupGroups[index].name = trimmed
+        document.displaySetupGroups[index].updatedAt = Date()
     }
 
     public mutating func updateCommand(profileID: UUID, command: String) throws {
