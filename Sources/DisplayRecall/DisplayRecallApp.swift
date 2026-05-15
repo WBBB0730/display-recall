@@ -382,7 +382,10 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     }
 
     func show(section: MainWindowSection) {
-        MainWindowRouter.shared.select(section)
+        let shouldSelectSection = window?.isVisible != true
+        if shouldSelectSection {
+            MainWindowRouter.shared.select(section)
+        }
 
         if window == nil {
             let window = NSWindow(
@@ -3449,6 +3452,86 @@ struct AboutPageView: View {
     }
 }
 
+struct AdjustableNumberField: NSViewRepresentable {
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let isEnabled: Bool
+
+    func makeNSView(context: Context) -> AdjustableNumberTextField {
+        let textField = AdjustableNumberTextField()
+        textField.delegate = context.coordinator
+        textField.alignment = .right
+        textField.bezelStyle = .roundedBezel
+        textField.onStep = { delta in
+            context.coordinator.step(delta: delta)
+        }
+        return textField
+    }
+
+    func updateNSView(_ nsView: AdjustableNumberTextField, context: Context) {
+        context.coordinator.parent = self
+        if nsView.integerValue != value {
+            nsView.integerValue = value
+        }
+        nsView.isEnabled = isEnabled
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: AdjustableNumberField
+
+        init(parent: AdjustableNumberField) {
+            self.parent = parent
+        }
+
+        func step(delta: Int) {
+            parent.value = min(max(parent.value + delta, parent.range.lowerBound), parent.range.upperBound)
+        }
+
+        func controlTextDidEndEditing(_ notification: Notification) {
+            guard let textField = notification.object as? NSTextField else {
+                return
+            }
+            parent.value = min(max(textField.integerValue, parent.range.lowerBound), parent.range.upperBound)
+        }
+    }
+}
+
+@MainActor
+final class AdjustableNumberTextField: NSTextField {
+    var onStep: ((Int) -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        switch event.keyCode {
+        case 126:
+            onStep?(1)
+        case 125:
+            onStep?(-1)
+        default:
+            super.keyDown(with: event)
+        }
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        guard window?.firstResponder == currentEditor() else {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        if event.scrollingDeltaY > 0 {
+            onStep?(1)
+        } else if event.scrollingDeltaY < 0 {
+            onStep?(-1)
+        } else {
+            super.scrollWheel(with: event)
+        }
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var localization: LocalizationController
     @AppStorage(DockIconVisibilityPreference.userDefaultsKey)
@@ -3503,8 +3586,7 @@ struct SettingsView: View {
                 HStack(alignment: .center, spacing: 8) {
                     Text(localization.text(.automaticApply))
                     Spacer(minLength: 16)
-                    TextField(
-                        "",
+                    AdjustableNumberField(
                         value: Binding(
                             get: { settings.automaticApplyCountdownSeconds },
                             set: { newValue in
@@ -3512,12 +3594,10 @@ struct SettingsView: View {
                                 saveSettings()
                             }
                         ),
-                        format: .number
+                        range: AutomaticApplyCountdownPolicy.allowedRange,
+                        isEnabled: settings.automaticApplyEnabled
                     )
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(.trailing)
                     .frame(width: 56)
-                    .disabled(!settings.automaticApplyEnabled)
                     Text(localization.status("seconds", chinese: "秒"))
                         .foregroundStyle(.secondary)
                     Toggle("", isOn: Binding(
