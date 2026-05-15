@@ -96,6 +96,20 @@ public struct ProfileImportPreview: Equatable, Sendable {
     public let matchingStatuses: [ImportMatchingStatus]
 }
 
+public struct ImportPreviewConfirmationSummary: Equatable, Sendable {
+    public let profileCount: Int
+    public let conflictCount: Int
+
+    public init(preview: ProfileImportPreview) {
+        profileCount = preview.profileCount
+        conflictCount = preview.conflicts.count
+    }
+
+    public var showsConflictStrategy: Bool {
+        conflictCount > 0
+    }
+}
+
 public struct ProfileExportPreview: Equatable, Sendable {
     public let profileCount: Int
     public let profileNames: [String]

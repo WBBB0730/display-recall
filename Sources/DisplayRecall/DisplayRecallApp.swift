@@ -1917,77 +1917,34 @@ private struct ImportPreviewSheet: View {
     @State private var conflictStrategy = ImportConflictStrategy.keepBoth
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(localization.text(.importPreview))
-                    .font(.title2)
-                    .fontWeight(.semibold)
+        VStack(alignment: .leading, spacing: 16) {
+            Text(localization.text(.importPreview))
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            VStack(alignment: .leading, spacing: 6) {
                 Text(localization.status(
-                    "Review this backup before importing.",
-                    chinese: "导入前先确认这个备份。"
+                    "Import \(summary.profileCount) configurations.",
+                    chinese: "将导入 \(summary.profileCount) 个配置。"
                 ))
-                .foregroundStyle(.secondary)
-            }
 
-            Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
-                GridRow {
-                    Text(localization.text(.profileCount))
-                    Text("\(state.preview.profileCount)")
-                        .foregroundStyle(.secondary)
-                }
-                GridRow {
-                    Text(localization.text(.conflicts))
-                    Text("\(state.preview.conflicts.count)")
-                        .foregroundStyle(state.preview.conflicts.isEmpty ? Color.secondary : Color.orange)
-                }
-                GridRow {
-                    Text(localization.text(.matchingCurrentSetup))
-                    Text("\(matchingCount)")
-                        .foregroundStyle(.secondary)
-                }
-                GridRow {
-                    Text(localization.text(.needsRebind))
-                    Text("\(needsRebindCount)")
-                        .foregroundStyle(needsRebindCount == 0 ? Color.secondary : Color.orange)
+                if summary.showsConflictStrategy {
+                    Text(localization.status(
+                        "\(summary.conflictCount) names already exist.",
+                        chinese: "其中 \(summary.conflictCount) 个名称已存在。"
+                    ))
+                    .foregroundStyle(.secondary)
                 }
             }
 
-            Divider()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(state.preview.matchingStatuses, id: \.profileID) { status in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(status.profileName)
-                                    .fontWeight(.medium)
-                                if state.preview.conflicts.contains(where: { $0.importedProfileID == status.profileID }) {
-                                    Text(localization.text(.conflicts))
-                                        .font(.caption)
-                                        .foregroundStyle(.orange)
-                                }
-                            }
-                            Spacer()
-                            Label(
-                                status.matchesCurrentDisplaySetup
-                                    ? localization.text(.matchesCurrentSetup)
-                                    : localization.text(.needsRebind),
-                                systemImage: status.matchesCurrentDisplaySetup ? "checkmark.circle" : "link.badge.plus"
-                            )
-                            .foregroundStyle(status.matchesCurrentDisplaySetup ? .green : .orange)
-                            .font(.caption)
-                        }
-                    }
+            if summary.showsConflictStrategy {
+                Picker(localization.text(.importConflictStrategy), selection: $conflictStrategy) {
+                    Text(localization.text(.keepBoth)).tag(ImportConflictStrategy.keepBoth)
+                    Text(localization.text(.replaceExisting)).tag(ImportConflictStrategy.replaceExisting)
+                    Text(localization.text(.skipConflicts)).tag(ImportConflictStrategy.skipConflict)
                 }
+                .pickerStyle(.radioGroup)
             }
-            .frame(maxHeight: 180)
-
-            Picker(localization.text(.importConflictStrategy), selection: $conflictStrategy) {
-                Text(localization.text(.keepBoth)).tag(ImportConflictStrategy.keepBoth)
-                Text(localization.text(.replaceExisting)).tag(ImportConflictStrategy.replaceExisting)
-                Text(localization.text(.skipConflicts)).tag(ImportConflictStrategy.skipConflict)
-            }
-            .pickerStyle(.radioGroup)
 
             HStack {
                 Spacer()
@@ -1998,16 +1955,12 @@ private struct ImportPreviewSheet: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(24)
-        .frame(width: 480)
+        .padding(18)
+        .frame(width: 360)
     }
 
-    private var matchingCount: Int {
-        state.preview.matchingStatuses.filter(\.matchesCurrentDisplaySetup).count
-    }
-
-    private var needsRebindCount: Int {
-        state.preview.matchingStatuses.count - matchingCount
+    private var summary: ImportPreviewConfirmationSummary {
+        ImportPreviewConfirmationSummary(preview: state.preview)
     }
 }
 
@@ -2712,13 +2665,18 @@ struct ProfilesContentView: View {
                     "strategy": "\(conflictStrategy)"
                 ]
             ))
-            statusMessage = localization.status(
-                "Imported \(state.preview.profileCount) profiles.",
-                chinese: "已导入 \(state.preview.profileCount) 个配置。"
-            )
+            statusMessage = ""
         } catch {
-            statusMessage = error.localizedDescription
+            showImportFailureAlert(error)
         }
+    }
+
+    private func showImportFailureAlert(_ error: Error) {
+        let alert = NSAlert()
+        alert.messageText = localization.status("Import failed", chinese: "导入失败")
+        alert.informativeText = error.localizedDescription
+        alert.addButton(withTitle: localization.status("OK", chinese: "好"))
+        alert.runModal()
     }
 
     private func currentDisplayFingerprint() async -> DisplaySetupFingerprint? {

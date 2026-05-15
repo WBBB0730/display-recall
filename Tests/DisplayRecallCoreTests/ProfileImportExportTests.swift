@@ -163,6 +163,41 @@ final class ProfileImportExportTests: XCTestCase {
         XCTAssertEqual(preview.matchingStatuses.map(\.matchesCurrentDisplaySetup), [true, false])
     }
 
+    func testImportPreviewConfirmationSummaryOnlyIncludesCountsNeededForConfirmation() throws {
+        let local = DisplayProfile.fixture(id: Self.homeID, name: "Home")
+        let importedHome = DisplayProfile.fixture(id: Self.officeID, name: "Home")
+        let importedTravel = DisplayProfile.fixture(id: Self.travelID, name: "Travel", fingerprint: "MISSING|builtIn:false|count:1")
+        let backup = ProfileBackupDocument(profiles: [importedHome, importedTravel])
+
+        let preview = try ProfileImporter.preview(
+            backup: backup,
+            currentDocument: ProfileStoreDocument(profiles: [local]),
+            currentFingerprint: local.displaySetupFingerprint
+        )
+        let summary = ImportPreviewConfirmationSummary(preview: preview)
+
+        XCTAssertEqual(summary.profileCount, 2)
+        XCTAssertEqual(summary.conflictCount, 1)
+        XCTAssertTrue(summary.showsConflictStrategy)
+    }
+
+    func testImportPreviewConfirmationSummaryHidesConflictStrategyWhenNoConflictsExist() throws {
+        let local = DisplayProfile.fixture(id: Self.homeID, name: "Home")
+        let imported = DisplayProfile.fixture(id: Self.officeID, name: "Office")
+        let backup = ProfileBackupDocument(profiles: [imported])
+
+        let preview = try ProfileImporter.preview(
+            backup: backup,
+            currentDocument: ProfileStoreDocument(profiles: [local]),
+            currentFingerprint: local.displaySetupFingerprint
+        )
+        let summary = ImportPreviewConfirmationSummary(preview: preview)
+
+        XCTAssertEqual(summary.profileCount, 1)
+        XCTAssertEqual(summary.conflictCount, 0)
+        XCTAssertFalse(summary.showsConflictStrategy)
+    }
+
     func testImportConflictStrategiesKeepBothReplaceOrSkip() throws {
         let local = DisplayProfile.fixture(id: Self.homeID, name: "Home")
         let imported = DisplayProfile.fixture(id: Self.officeID, name: "Home")
