@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension Notification.Name {
     static let displayRecallDisplaySetupChanged = Notification.Name("DisplayRecallDisplaySetupChanged")
+    static let displayRecallProfilesChanged = Notification.Name("DisplayRecallProfilesChanged")
     static let displayRecallStartupStabilized = Notification.Name("DisplayRecallStartupStabilized")
 }
 
@@ -366,6 +367,7 @@ final class StatusBarController: NSObject {
     private var automaticCoordinator = AutomaticApplyCoordinator(countdownSeconds: 5)
     private var pendingApplyTask: Task<Void, Never>?
     private var displayChangeObserver: NSObjectProtocol?
+    private var profileChangeObserver: NSObjectProtocol?
     private var startupObserver: NSObjectProtocol?
 
     override init() {
@@ -382,10 +384,14 @@ final class StatusBarController: NSObject {
         if let displayChangeObserver {
             NotificationCenter.default.removeObserver(displayChangeObserver)
         }
+        if let profileChangeObserver {
+            NotificationCenter.default.removeObserver(profileChangeObserver)
+        }
         if let startupObserver {
             NotificationCenter.default.removeObserver(startupObserver)
         }
         displayChangeObserver = nil
+        profileChangeObserver = nil
         startupObserver = nil
         pendingApplyTask?.cancel()
         NSStatusBar.system.removeStatusItem(statusItem)
@@ -409,6 +415,16 @@ final class StatusBarController: NSObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 await self?.scheduleAutomaticApply(trigger: .displayChange)
+            }
+        }
+
+        profileChangeObserver = NotificationCenter.default.addObserver(
+            forName: .displayRecallProfilesChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.loadProfiles()
             }
         }
 
@@ -622,6 +638,7 @@ final class StatusBarController: NSObject {
                 displaySetupGroupLanguage: LocalizationController.shared.preference
             )
             try DisplayRecallStore.live().save(document)
+            NotificationCenter.default.post(name: .displayRecallProfilesChanged, object: nil)
             currentFingerprint = layout.displaySetupFingerprint
         } catch {
             recordActivity(ActivityLogEntry(
@@ -981,6 +998,9 @@ struct MenuBarContentView: View {
                 await scheduleAutomaticApply(trigger: .displayChange)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .displayRecallProfilesChanged)) { _ in
+            loadProfiles()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .displayRecallStartupStabilized)) { _ in
             Task {
                 await scheduleAutomaticApply(trigger: .startup)
@@ -1046,6 +1066,7 @@ struct MenuBarContentView: View {
                 displaySetupGroupLanguage: localization.preference
             )
             try DisplayRecallStore.live().save(document)
+            NotificationCenter.default.post(name: .displayRecallProfilesChanged, object: nil)
             currentFingerprint = layout.displaySetupFingerprint
             statusMessage = localization.status("Saved current layout.", chinese: "已保存当前布局。")
         } catch {
@@ -1478,6 +1499,7 @@ struct SetupView: View {
                     automaticDefaultRules: completion.automaticDefaultRule.map { [$0] } ?? []
                 )
             )
+            NotificationCenter.default.post(name: .displayRecallProfilesChanged, object: nil)
             try store.save(
                 SettingsStoreDocument(
                     settings: AppSettings(setupCompleted: true, showDockIcon: false)
@@ -2197,6 +2219,13 @@ struct ProfilesContentView: View {
             await refreshCurrentFingerprint()
             initializeExpandedGroupsIfNeeded()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .displayRecallProfilesChanged)) { _ in
+            Task {
+                loadProfiles()
+                await refreshCurrentFingerprint()
+                syncExpandedGroupsWithVisibleSections()
+            }
+        }
         .sheet(item: $exportSheet) { sheet in
             ExportProfilesSheet(
                 state: sheet,
@@ -2311,6 +2340,12 @@ struct ProfilesContentView: View {
         didInitializeExpandedGroups = true
     }
 
+    private func syncExpandedGroupsWithVisibleSections() {
+        let visibleGroupIDs = Set(groupSections.map(\.group.id))
+        expandedGroupIDs.formIntersection(visibleGroupIDs)
+        expandedGroupIDs.formUnion(groupSections.filter(\.isExpandedByDefault).map(\.group.id))
+    }
+
     private func automaticApplyBinding(for profile: DisplayProfile) -> Binding<Bool> {
         Binding(
             get: {
@@ -2406,6 +2441,7 @@ struct ProfilesContentView: View {
     private func saveDocument() {
         do {
             try DisplayRecallStore.live().save(document)
+            NotificationCenter.default.post(name: .displayRecallProfilesChanged, object: nil)
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -2579,6 +2615,7 @@ struct ProfilesContentView: View {
             document = result.profilesDocument
             selectedProfileIDs = Set(result.nextSelectedProfileID.map { [$0] } ?? [])
             try store.save(result.profilesDocument)
+            NotificationCenter.default.post(name: .displayRecallProfilesChanged, object: nil)
             try store.save(SettingsStoreDocument(settings: result.settings))
             try ActivityLogRecorder(store: store).record(result.logEntry)
             statusMessage = localization.status("Deleted profile.", chinese: "已删除配置。")
