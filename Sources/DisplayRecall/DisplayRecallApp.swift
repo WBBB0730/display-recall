@@ -276,10 +276,9 @@ private struct MenuSaveProfilePanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(localization.text(.saveCurrentProfile))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.headline)
 
-            TextField("", text: $name)
+            TextField(localization.text(.profileName), text: $name)
                 .textFieldStyle(.roundedBorder)
                 .focused($nameFocused)
 
