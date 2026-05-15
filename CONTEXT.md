@@ -27,12 +27,13 @@ _Avoid_: Default profile, active profile
 - A **Configuration** belongs to exactly one **Display Setup Group** through its display setup.
 - A **Display Setup Group** can have zero or one **Automatic Apply Configuration**.
 - Deleting a **Display Setup Group** deletes every **Configuration** in that group.
-- Deleting the current **Display Setup Group** removes its stored group and configurations, but the current **Display Setup** remains visible as a new empty group.
+- Only stored **Display Setup Groups** appear in the Profile page; the app does not create temporary groups just to represent the current display setup.
+- Deleting the current **Display Setup Group** removes its stored group and configurations; a new group is created only when the user saves the current layout again.
 
 ## Example Dialogue
 
-> **Dev:** "If the user deletes the current Display Setup Group, should it disappear?"
-> **Domain expert:** "No. Its saved configurations are deleted, but the current Display Setup still exists, so the Profile page should show a new empty group where the user can save the current layout."
+> **Dev:** "If the current Display Setup has no stored Display Setup Group, should the Profile page show a temporary empty group?"
+> **Domain expert:** "No. The page should show stored groups only; saving the current layout is what creates the group."
 
 ## Flagged Ambiguities
 

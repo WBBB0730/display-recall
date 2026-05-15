@@ -2094,10 +2094,7 @@ struct ProfilesContentView: View {
     private var groupSections: [ProfileGroupSection] {
         ProfileGroupingProjection.sections(
             document: document,
-            currentFingerprint: currentFingerprint,
-            currentGroupName: localization.defaultDisplaySetupGroupName(
-                existingNames: document.displaySetupGroups.map(\.name)
-            )
+            currentFingerprint: currentFingerprint
         )
     }
 

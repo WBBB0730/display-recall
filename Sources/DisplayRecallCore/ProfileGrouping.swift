@@ -22,16 +22,9 @@ public struct ProfileGroupSection: Equatable, Sendable {
 public enum ProfileGroupingProjection {
     public static func sections(
         document: ProfileStoreDocument,
-        currentFingerprint: DisplaySetupFingerprint?,
-        currentGroupName: String? = nil
+        currentFingerprint: DisplaySetupFingerprint?
     ) -> [ProfileGroupSection] {
-        let groups = groupsIncludingEphemeralCurrent(
-            document: document,
-            currentFingerprint: currentFingerprint,
-            currentGroupName: currentGroupName
-        )
-
-        let sections: [ProfileGroupSection] = groups.compactMap { group in
+        let sections: [ProfileGroupSection] = document.displaySetupGroups.compactMap { group in
             let profiles = document.profiles.filter { profile in
                 profile.displaySetupFingerprint == group.fingerprint
             }
@@ -54,26 +47,5 @@ public enum ProfileGroupingProjection {
             }
             return false
         }
-    }
-
-    private static func groupsIncludingEphemeralCurrent(
-        document: ProfileStoreDocument,
-        currentFingerprint: DisplaySetupFingerprint?,
-        currentGroupName: String?
-    ) -> [DisplaySetupGroup] {
-        guard let currentFingerprint,
-              !document.displaySetupGroups.contains(where: { $0.fingerprint == currentFingerprint }) else {
-            return document.displaySetupGroups
-        }
-
-        let currentGroup = DisplaySetupGroup(
-            id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
-            fingerprint: currentFingerprint,
-            name: currentGroupName ?? DisplaySetupGroupNameGenerator.firstAvailableDefaultName(
-                existingNames: document.displaySetupGroups.map(\.name),
-                language: .english
-            )
-        )
-        return [currentGroup] + document.displaySetupGroups
     }
 }

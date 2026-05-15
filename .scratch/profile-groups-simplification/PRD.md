@@ -20,7 +20,7 @@ Display Recall 的 Profile 模块已经能完成保存、应用、自动默认�
 - 每个显示器组合最多只有一个配置打开“自动应用配置”开关。
 - 打开一个配置的自动应用开关，会自动关闭同组其他配置的自动应用开关。
 
-Profile 主界面不再展示右侧详情编辑器，不再常驻展示 fingerprint、display summary、notes、raw command、高风险标记或“默认配置”概念。低频动作放进更多菜单。显示器组合支持重命名和删除；删除显示器组合会删除组内全部配置，并清理这些配置相关的自动应用规则和快捷键。当前显示器组合被删除后，由于当前显示器环境仍然存在，列表会立刻显示一个新的空当前组合；非当前组合删除后消失。
+Profile 主界面不再展示右侧详情编辑器，不再常驻展示 fingerprint、display summary、notes、raw command、高风险标记或“默认配置”概念。低频动作放进更多菜单。显示器组合支持重命名和删除；删除显示器组合会删除组内全部配置，并清理这些配置相关的自动应用规则和快捷键。列表只显示真实存储的显示器组合，不为了当前 fingerprint 临时生成空组合。当前没有组合时，用户通过保存当前布局懒创建真实组合。
 
 ## User Stories
 
@@ -28,7 +28,7 @@ Profile 主界面不再展示右侧详情编辑器，不再常驻展示 fingerpr
 2. As a Display Recall user, I want the current display setup group expanded by default, so that the most relevant profiles are immediately visible.
 3. As a Display Recall user, I want non-current display setup groups collapsed by default, so that historical configurations do not distract me.
 4. As a Display Recall user, I want non-current empty display setup groups hidden, so that the list does not show irrelevant empty containers.
-5. As a Display Recall user, I want an empty current display setup group to remain visible, so that I can save a configuration for the setup I am currently using.
+5. As a Display Recall user, I want no temporary display setup group when the current setup has not been saved, so that the list only contains real groups.
 6. As a Display Recall user, I want display setup groups to have friendly names, so that I do not have to read display hardware summaries or fingerprints.
 7. As a Display Recall user, I want default display setup group names to be generated automatically, so that I can start without naming every group.
 8. As a Display Recall user, I want to rename a display setup group, so that names can match my own language such as office desk, home desk, or meeting room.
@@ -54,7 +54,7 @@ Profile 主界面不再展示右侧详情编辑器，不再常驻展示 fingerpr
 28. As a Display Recall user, I want deleting an automatic profile to also remove its automatic apply rule, so that automation does not point at deleted data.
 29. As a Display Recall user, I want every display setup group to expose Delete Display Setup Group, so that I can remove obsolete groups directly.
 30. As a Display Recall user, I want deleting a display setup group to delete every configuration inside it, so that the group does not reappear because its configurations still reference the same display setup.
-31. As a Display Recall user, I want deleting the current display setup group to leave a new empty current group visible, so that I can still save the current layout.
+31. As a Display Recall user, I want deleting the current display setup group to remove it from the list until I save the current layout again, so that deletion behaves like deletion.
 32. As a Display Recall user, I want group delete confirmation to clearly say when configurations will also be deleted, so that destructive scope is obvious before I confirm.
 33. As a Display Recall user, I do not want profile search in the simplified UI, so that the page remains focused on grouping rather than database browsing.
 34. As a Display Recall user, I do not want notes editing in the main Profile UI, so that profiles feel like executable configurations rather than records.
@@ -80,13 +80,14 @@ Profile 主界面不再展示右侧详情编辑器，不再常驻展示 fingerpr
 - Display setup group v1 fields are limited to `id`, `fingerprint`, `name`, `createdAt`, and `updatedAt`.
 - Display setup groups do not have icons, colors, notes, custom ordering, a details page, manual merge, or manual split in this PRD.
 - Every stored visible display setup group exposes Delete Display Setup Group.
-- Ephemeral current display setup groups that exist only because the current fingerprint has no stored group do not expose Delete Display Setup Group.
+- The Profile page never creates an ephemeral current display setup group.
+- When no stored display setup groups are visible, the Profile page uses the existing simple empty state and keeps Save Current Layout as the primary action.
 - Delete Display Setup Group appears beside Rename Display Setup in the group header hover/focus action area.
 - The group header action order is Rename, then Delete.
 - The Delete Display Setup Group icon uses the same neutral hover treatment as other icon actions; destructive scope is communicated by confirmation copy.
 - Deleting a display setup group deletes the group and every profile whose display setup fingerprint belongs to that group.
 - Deleting a display setup group clears automatic apply rules and shortcut bindings for every deleted profile.
-- Deleting the current display setup group removes the stored group and profiles, then the grouping projection shows a new empty current group for the current fingerprint.
+- Deleting the current display setup group removes the stored group and profiles; a new group appears only after Save Current Layout lazily creates one again.
 - Existing profiles are grouped by `displaySetupFingerprint` during load or migration.
 - Saving the current layout lazily creates a display setup group when the current fingerprint has no group.
 - Profile data continues to store `displaySetupFingerprint`; the group entity organizes profiles but does not replace the profile's fingerprint.
@@ -104,7 +105,7 @@ Profile 主界面不再展示右侧详情编辑器，不再常驻展示 fingerpr
 - The current display setup group is expanded by default.
 - Non-current non-empty display setup groups are visible and collapsed by default.
 - Non-current empty display setup groups are hidden.
-- Current empty display setup group is visible and shows an empty state.
+- Current empty display setup groups are visible only if they are stored groups.
 - Fold state is local UI state only and is not persisted.
 - Profile rows show a simple profile name plus actions; hardware summaries and fingerprints are not shown in the default row.
 - Profile row primary actions are Automatic Apply Configuration, Apply Configuration, and More.
@@ -151,7 +152,7 @@ Profile 主界面不再展示右侧详情编辑器，不再常驻展示 fingerpr
 - Add generated-name tests for display setup groups in English and Simplified Chinese.
 - Add generated-name tests that group names use a separate sequence from profile names.
 - Add lazy-create tests for saving current layout when no group exists for the current fingerprint.
-- Add grouping projection tests for current non-empty, current empty, non-current non-empty, and non-current empty groups.
+- Add grouping projection tests for current non-empty, stored current empty, non-current non-empty, non-current empty, and missing-current-group cases.
 - Add grouping projection tests that current group is expanded by default and non-current groups are collapsed by default.
 - Add automatic apply switch tests that enabling one profile disables siblings in the same fingerprint group.
 - Add automatic apply switch tests that disabling the active switch clears the matching rule.

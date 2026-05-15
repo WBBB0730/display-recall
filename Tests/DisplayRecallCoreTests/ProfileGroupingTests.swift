@@ -27,7 +27,7 @@ final class ProfileGroupingTests: XCTestCase {
         XCTAssertEqual(sections.map(\.isExpandedByDefault), [true, false])
     }
 
-    func testProjectionShowsEphemeralCurrentGroupWhenCurrentFingerprintHasNoStoredGroup() {
+    func testProjectionDoesNotSynthesizeCurrentGroupWhenCurrentFingerprintHasNoStoredGroup() {
         let currentFingerprint = DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1")
         let historicalFingerprint = DisplaySetupFingerprint(rawValue: "BBB|builtIn:true|count:1")
         let historicalGroup = DisplaySetupGroup.fixture(name: "Travel", fingerprint: historicalFingerprint)
@@ -39,14 +39,13 @@ final class ProfileGroupingTests: XCTestCase {
 
         let sections = ProfileGroupingProjection.sections(
             document: document,
-            currentFingerprint: currentFingerprint,
-            currentGroupName: "显示器组合 1"
+            currentFingerprint: currentFingerprint
         )
 
-        XCTAssertEqual(sections.map(\.group.name), ["显示器组合 1", "Travel"])
-        XCTAssertEqual(sections.map { $0.profiles.map(\.name) }, [[], ["Laptop"]])
-        XCTAssertEqual(sections.map(\.isCurrent), [true, false])
-        XCTAssertEqual(sections.map(\.isExpandedByDefault), [true, false])
+        XCTAssertEqual(sections.map(\.group.name), ["Travel"])
+        XCTAssertEqual(sections.map { $0.profiles.map(\.name) }, [["Laptop"]])
+        XCTAssertEqual(sections.map(\.isCurrent), [false])
+        XCTAssertEqual(sections.map(\.isExpandedByDefault), [false])
     }
 
     func testProjectionKeepsOnlyCurrentEmptyGroupVisible() {
