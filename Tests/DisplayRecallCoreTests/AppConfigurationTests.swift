@@ -72,6 +72,21 @@ final class AppConfigurationTests: XCTestCase {
         )
     }
 
+    func testDockIconVisibilityPolicyPreservesVisibleMainWindowWhenHidingDockIcon() {
+        XCTAssertTrue(
+            DockIconVisibilityPolicy.shouldPreserveMainWindowVisibility(
+                preference: .alwaysHide,
+                isMainWindowVisible: true
+            )
+        )
+        XCTAssertFalse(
+            DockIconVisibilityPolicy.shouldPreserveMainWindowVisibility(
+                preference: .alwaysHide,
+                isMainWindowVisible: false
+            )
+        )
+    }
+
     func testAppBundleManifestSupportsLaunchingAsDisplayRecall() {
         let manifest = AppBundleManifest.default
 

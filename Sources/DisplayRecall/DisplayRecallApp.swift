@@ -43,6 +43,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBarController?.invalidate()
         statusBarController = nil
     }
+
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        MainWindowController.shared.show(section: MainWindowSection.default)
+        return false
+    }
 }
 
 extension Notification.Name {
@@ -70,6 +78,12 @@ enum DockIconController {
                 isMainWindowVisible: isMainWindowVisible
             ).appKitActivationPolicy
         )
+        if DockIconVisibilityPolicy.shouldPreserveMainWindowVisibility(
+            preference: preference,
+            isMainWindowVisible: isMainWindowVisible
+        ) {
+            MainWindowController.shared.restoreVisibleWindow()
+        }
     }
 
     private static func storedPreference(defaults: UserDefaults) -> DockIconVisibilityPreference {
@@ -390,6 +404,14 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         }
 
         DockIconController.applyCurrentPreference(isMainWindowVisible: true)
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func restoreVisibleWindow() {
+        guard window?.isVisible == true else {
+            return
+        }
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }

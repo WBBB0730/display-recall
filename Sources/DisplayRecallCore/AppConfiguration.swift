@@ -125,6 +125,13 @@ public enum DockIconVisibilityPolicy {
             .accessory
         }
     }
+
+    public static func shouldPreserveMainWindowVisibility(
+        preference: DockIconVisibilityPreference,
+        isMainWindowVisible: Bool
+    ) -> Bool {
+        preference == .alwaysHide && isMainWindowVisible
+    }
 }
 
 public enum SetupPreference {
