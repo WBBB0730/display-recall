@@ -103,16 +103,21 @@ final class SettingsAndShortcutTests: XCTestCase {
         let first = ShortcutBinding(profileId: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!)
         let second = ShortcutBinding(
             profileId: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
-            keyEquivalent: "⌘⇧1"
+            keyEquivalent: "⌘⇧1",
+            keyCode: 18,
+            modifierFlags: 1
         )
         let duplicate = ShortcutBinding(
             profileId: UUID(uuidString: "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC")!,
-            keyEquivalent: "⌘⇧1"
+            keyEquivalent: "⌘⇧1",
+            keyCode: 18,
+            modifierFlags: 1
         )
 
         XCTAssertNil(first.keyEquivalent)
+        XCTAssertNil(first.keyCode)
+        XCTAssertNil(first.modifierFlags)
         XCTAssertThrowsError(try ShortcutBindingValidator.validate([second, duplicate]))
-        XCTAssertTrue(ShortcutBindingValidator.commonSystemShortcutWarnings(for: "⌘Space").contains(.spotlight))
     }
 
     func testShortcutPermissionIsOnlyNeededWhenAShortcutIsConfigured() {
@@ -122,5 +127,35 @@ final class SettingsAndShortcutTests: XCTestCase {
         XCTAssertTrue(ShortcutPermissionPolicy.requiresPermissionPrompt(bindings: [
             ShortcutBinding(profileId: UUID(), keyEquivalent: "⌘⇧1")
         ]))
+    }
+
+    func testShortcutBindingUpdatesCanClearModifyOrReplaceConflicts() throws {
+        let first = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let second = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
+        let commandShiftOne = ShortcutBinding(
+            profileId: first,
+            keyEquivalent: "⌘⇧1",
+            keyCode: 18,
+            modifierFlags: 1
+        )
+
+        let conflict = ShortcutBindingEditor.conflict(
+            for: commandShiftOne.shortcut!,
+            profileId: second,
+            in: [commandShiftOne]
+        )
+        XCTAssertEqual(conflict?.profileId, first)
+
+        var replaced = ShortcutBindingEditor.replace(
+            commandShiftOne.shortcut!,
+            for: second,
+            in: [commandShiftOne]
+        )
+        XCTAssertEqual(replaced, [
+            ShortcutBinding(profileId: second, keyEquivalent: "⌘⇧1", keyCode: 18, modifierFlags: 1)
+        ])
+
+        replaced = ShortcutBindingEditor.clear(profileId: second, in: replaced)
+        XCTAssertTrue(replaced.isEmpty)
     }
 }

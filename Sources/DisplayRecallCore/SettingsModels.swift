@@ -451,10 +451,45 @@ public enum DisplaySetupGroupNameGenerator {
 public struct ShortcutBinding: Equatable, Sendable, Codable {
     public let profileId: UUID
     public var keyEquivalent: String?
+    public var keyCode: UInt16?
+    public var modifierFlags: UInt?
 
-    public init(profileId: UUID, keyEquivalent: String? = nil) {
+    public init(
+        profileId: UUID,
+        keyEquivalent: String? = nil,
+        keyCode: UInt16? = nil,
+        modifierFlags: UInt? = nil
+    ) {
         self.profileId = profileId
         self.keyEquivalent = keyEquivalent
+        self.keyCode = keyCode
+        self.modifierFlags = modifierFlags
+    }
+
+    public var shortcut: ConfigurationShortcut? {
+        guard let keyEquivalent,
+              !keyEquivalent.isEmpty,
+              let keyCode,
+              let modifierFlags else {
+            return nil
+        }
+        return ConfigurationShortcut(
+            keyEquivalent: keyEquivalent,
+            keyCode: keyCode,
+            modifierFlags: modifierFlags
+        )
+    }
+}
+
+public struct ConfigurationShortcut: Equatable, Sendable, Codable {
+    public let keyEquivalent: String
+    public let keyCode: UInt16
+    public let modifierFlags: UInt
+
+    public init(keyEquivalent: String, keyCode: UInt16, modifierFlags: UInt) {
+        self.keyEquivalent = keyEquivalent
+        self.keyCode = keyCode
+        self.modifierFlags = modifierFlags
     }
 }
 
@@ -489,6 +524,42 @@ public enum ShortcutBindingValidator {
         default:
             []
         }
+    }
+}
+
+public enum ShortcutBindingEditor {
+    public static func conflict(
+        for shortcut: ConfigurationShortcut,
+        profileId: UUID,
+        in bindings: [ShortcutBinding]
+    ) -> ShortcutBinding? {
+        bindings.first { binding in
+            binding.profileId != profileId
+                && binding.shortcut?.keyEquivalent == shortcut.keyEquivalent
+        }
+    }
+
+    public static func replace(
+        _ shortcut: ConfigurationShortcut,
+        for profileId: UUID,
+        in bindings: [ShortcutBinding]
+    ) -> [ShortcutBinding] {
+        let withoutShortcut = bindings.filter { binding in
+            binding.profileId != profileId
+                && binding.shortcut?.keyEquivalent != shortcut.keyEquivalent
+        }
+        return withoutShortcut + [
+            ShortcutBinding(
+                profileId: profileId,
+                keyEquivalent: shortcut.keyEquivalent,
+                keyCode: shortcut.keyCode,
+                modifierFlags: shortcut.modifierFlags
+            )
+        ]
+    }
+
+    public static func clear(profileId: UUID, in bindings: [ShortcutBinding]) -> [ShortcutBinding] {
+        bindings.filter { $0.profileId != profileId }
     }
 }
 

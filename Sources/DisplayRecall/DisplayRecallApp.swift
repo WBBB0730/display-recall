@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import DisplayRecallCore
 import ServiceManagement
 import SwiftUI
@@ -18,10 +19,12 @@ struct DisplayRecallApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var displayChangeObserver: NSObjectProtocol?
     private var statusBarController: StatusBarController?
+    private var shortcutController: ShortcutHotKeyController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DockIconController.applyCurrentPreference()
         statusBarController = StatusBarController()
+        shortcutController = ShortcutHotKeyController.shared
         displayChangeObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -42,6 +45,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         statusBarController?.invalidate()
         statusBarController = nil
+        shortcutController?.invalidate()
+        shortcutController = nil
     }
 
     func applicationShouldHandleReopen(
@@ -53,10 +58,319 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+@MainActor
+final class ShortcutHotKeyController {
+    static let shared = ShortcutHotKeyController()
+
+    private static let signature = OSType(0x4452434C)
+
+    private var registeredHotKeys: [EventHotKeyRef] = []
+    private var hotKeyProfileIDs: [UInt32: UUID] = [:]
+    private var nextHotKeyID: UInt32 = 1
+    private var eventHandler: EventHandlerRef?
+    private var profilesObserver: NSObjectProtocol?
+    private var shortcutsObserver: NSObjectProtocol?
+
+    private init() {
+        installHandlerIfNeeded()
+        reload(showFailures: false)
+        profilesObserver = NotificationCenter.default.addObserver(
+            forName: .displayRecallProfilesChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.reload(showFailures: false)
+            }
+        }
+        shortcutsObserver = NotificationCenter.default.addObserver(
+            forName: .displayRecallShortcutsChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.reload(showFailures: true)
+            }
+        }
+    }
+
+    func invalidate() {
+        unregisterAll()
+        if let eventHandler {
+            RemoveEventHandler(eventHandler)
+            self.eventHandler = nil
+        }
+        if let profilesObserver {
+            NotificationCenter.default.removeObserver(profilesObserver)
+        }
+        if let shortcutsObserver {
+            NotificationCenter.default.removeObserver(shortcutsObserver)
+        }
+        profilesObserver = nil
+        shortcutsObserver = nil
+    }
+
+    func reload(showFailures: Bool) {
+        unregisterAll()
+        installHandlerIfNeeded()
+
+        do {
+            let store = try DisplayRecallStore.live()
+            let document = try store.loadProfiles()
+            let settings = try store.loadSettings().settings
+            let profileIDs = Set(document.profiles.map(\.id))
+            var failures: [String] = []
+
+            for binding in settings.shortcutBindings where profileIDs.contains(binding.profileId) {
+                guard let shortcut = binding.shortcut else {
+                    continue
+                }
+                if let error = register(shortcut, profileID: binding.profileId) {
+                    failures.append(shortcut.keyEquivalent)
+                    recordShortcutRegistrationFailure(shortcut, error: error)
+                }
+            }
+
+            if showFailures, !failures.isEmpty {
+                showSimpleAlert(
+                    title: LocalizationController.shared.status(
+                        "Shortcut unavailable",
+                        chinese: "快捷键暂时不可用"
+                    ),
+                    message: failures.joined(separator: ", ")
+                )
+            }
+        } catch {
+            recordActivity(ActivityLogEntry(
+                type: .backendVerification,
+                metadata: ["shortcutRegistrationError": error.localizedDescription]
+            ))
+        }
+    }
+
+    private func installHandlerIfNeeded() {
+        guard eventHandler == nil else {
+            return
+        }
+
+        var eventType = EventTypeSpec(
+            eventClass: OSType(kEventClassKeyboard),
+            eventKind: UInt32(kEventHotKeyPressed)
+        )
+        let status = InstallEventHandler(
+            GetEventDispatcherTarget(),
+            { _, event, userData in
+                guard let event, let userData else {
+                    return noErr
+                }
+                var hotKeyID = EventHotKeyID()
+                GetEventParameter(
+                    event,
+                    EventParamName(kEventParamDirectObject),
+                    EventParamType(typeEventHotKeyID),
+                    nil,
+                    MemoryLayout<EventHotKeyID>.size,
+                    nil,
+                    &hotKeyID
+                )
+                let controller = Unmanaged<ShortcutHotKeyController>
+                    .fromOpaque(userData)
+                    .takeUnretainedValue()
+                Task { @MainActor in
+                    controller.handleHotKey(id: hotKeyID.id)
+                }
+                return noErr
+            },
+            1,
+            &eventType,
+            Unmanaged.passUnretained(self).toOpaque(),
+            &eventHandler
+        )
+
+        if status != noErr {
+            recordActivity(ActivityLogEntry(
+                type: .backendVerification,
+                metadata: ["shortcutHandlerError": "\(status)"]
+            ))
+        }
+    }
+
+    private func register(_ shortcut: ConfigurationShortcut, profileID: UUID) -> String? {
+        let hotKeyID = nextHotKeyID
+        nextHotKeyID += 1
+
+        let eventHotKeyID = EventHotKeyID(
+            signature: Self.signature,
+            id: hotKeyID
+        )
+        var hotKeyRef: EventHotKeyRef?
+        let status = RegisterEventHotKey(
+            UInt32(shortcut.keyCode),
+            carbonModifiers(from: shortcut.modifierFlags),
+            eventHotKeyID,
+            GetEventDispatcherTarget(),
+            0,
+            &hotKeyRef
+        )
+
+        guard status == noErr, let hotKeyRef else {
+            return "\(status)"
+        }
+
+        registeredHotKeys.append(hotKeyRef)
+        hotKeyProfileIDs[hotKeyID] = profileID
+        return nil
+    }
+
+    private func unregisterAll() {
+        for hotKey in registeredHotKeys {
+            UnregisterEventHotKey(hotKey)
+        }
+        registeredHotKeys.removeAll()
+        hotKeyProfileIDs.removeAll()
+    }
+
+    private func handleHotKey(id: UInt32) {
+        guard let profileID = hotKeyProfileIDs[id] else {
+            return
+        }
+
+        Task {
+            await applyShortcut(profileID: profileID)
+        }
+    }
+
+    private func applyShortcut(profileID: UUID) async {
+        do {
+            let store = try DisplayRecallStore.live()
+            let document = try store.loadProfiles()
+            guard let profile = document.profiles.first(where: { $0.id == profileID }) else {
+                return
+            }
+            let currentFingerprint = await currentDisplayFingerprint()
+            guard confirmApplyIfNeeded(profile, currentFingerprint: currentFingerprint) else {
+                return
+            }
+
+            let runner = try DisplayplacerBackend.bundledRunner()
+            let manager = ProfileManager(document: document)
+            let result = try await manager.apply(profile) { arguments in
+                try await runner.run(arguments: arguments)
+            }
+            recordActivity(ActivityLogEntry(
+                type: result.exitCode == 0 ? .hotkeyApplied : .profileApplyFailed,
+                trigger: .hotkey,
+                profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                backend: BackendSnapshot(
+                    path: result.backendPath,
+                    version: result.backendVersion,
+                    source: result.backendSource
+                ),
+                command: profile.command,
+                stdout: result.stdout,
+                stderr: result.stderr,
+                exitCode: result.exitCode
+            ))
+            if result.exitCode != 0 {
+                showSimpleAlert(
+                    title: LocalizationController.shared.status("Apply failed", chinese: "应用失败"),
+                    message: result.stderr
+                )
+            }
+        } catch {
+            showSimpleAlert(
+                title: LocalizationController.shared.status("Apply failed", chinese: "应用失败"),
+                message: error.localizedDescription
+            )
+            recordActivity(ActivityLogEntry(
+                type: .profileApplyFailed,
+                trigger: .hotkey,
+                profileSnapshot: nil,
+                stderr: error.localizedDescription
+            ))
+        }
+    }
+
+    private func confirmApplyIfNeeded(
+        _ profile: DisplayProfile,
+        currentFingerprint: DisplaySetupFingerprint?
+    ) -> Bool {
+        let requiresConfirmation = profile.displaySetupFingerprint != currentFingerprint
+            || profile.importedNeedsFirstApplyConfirmation
+            || profile.isCommandEdited
+        guard requiresConfirmation else {
+            return true
+        }
+
+        let localization = LocalizationController.shared
+        let alert = NSAlert()
+        alert.messageText = localization.status("Apply \(profile.name)?", chinese: "应用 \(profile.name)？")
+        alert.informativeText = localization.status(
+            "This configuration may belong to a different display setup or need extra care.",
+            chinese: "这个配置可能属于其他显示器组合，或需要额外确认。"
+        )
+        alert.addButton(withTitle: localization.text(.applyConfiguration))
+        alert.addButton(withTitle: localization.text(.cancel))
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    private func currentDisplayFingerprint() async -> DisplaySetupFingerprint? {
+        guard let service = try? FirstRunSetupService.live(),
+              case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
+            return nil
+        }
+        return layout.displaySetupFingerprint
+    }
+
+    private func carbonModifiers(from modifierFlags: UInt) -> UInt32 {
+        let flags = NSEvent.ModifierFlags(rawValue: modifierFlags)
+        var carbonFlags: UInt32 = 0
+        if flags.contains(.command) {
+            carbonFlags |= UInt32(cmdKey)
+        }
+        if flags.contains(.option) {
+            carbonFlags |= UInt32(optionKey)
+        }
+        if flags.contains(.control) {
+            carbonFlags |= UInt32(controlKey)
+        }
+        if flags.contains(.shift) {
+            carbonFlags |= UInt32(shiftKey)
+        }
+        return carbonFlags
+    }
+
+    private func recordShortcutRegistrationFailure(
+        _ shortcut: ConfigurationShortcut,
+        error: String
+    ) {
+        recordActivity(ActivityLogEntry(
+            type: .backendVerification,
+            metadata: [
+                "shortcut": shortcut.keyEquivalent,
+                "registrationError": error
+            ]
+        ))
+    }
+
+    private func recordActivity(_ entry: ActivityLogEntry) {
+        try? ActivityLogRecorder(store: DisplayRecallStore.live()).record(entry)
+    }
+
+    private func showSimpleAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: LocalizationController.shared.status("OK", chinese: "好"))
+        alert.runModal()
+    }
+}
+
 extension Notification.Name {
     static let displayRecallDisplaySetupChanged = Notification.Name("DisplayRecallDisplaySetupChanged")
     static let displayRecallProfilesChanged = Notification.Name("DisplayRecallProfilesChanged")
     static let displayRecallStartupStabilized = Notification.Name("DisplayRecallStartupStabilized")
+    static let displayRecallShortcutsChanged = Notification.Name("DisplayRecallShortcutsChanged")
 }
 
 @MainActor
@@ -1803,6 +2117,12 @@ private struct RenameSheetState: Identifiable {
     let target: RenameTarget
 }
 
+private struct ShortcutSheetState: Identifiable {
+    let id = UUID()
+    let profile: DisplayProfile
+    let existingShortcut: ConfigurationShortcut?
+}
+
 private struct RenameSheet: View {
     @EnvironmentObject private var localization: LocalizationController
     let state: RenameSheetState
@@ -1839,6 +2159,185 @@ private struct RenameSheet: View {
         }
         .padding(18)
         .frame(width: 320)
+    }
+}
+
+private struct ShortcutCaptureSheet: View {
+    @EnvironmentObject private var localization: LocalizationController
+    let state: ShortcutSheetState
+    let conflictName: (ConfigurationShortcut?) -> String?
+    let onCancel: () -> Void
+    let onClear: () -> Void
+    let onSave: (ConfigurationShortcut) -> Void
+    let onReplace: (ConfigurationShortcut) -> Void
+
+    @State private var shortcut: ConfigurationShortcut?
+
+    init(
+        state: ShortcutSheetState,
+        conflictName: @escaping (ConfigurationShortcut?) -> String?,
+        onCancel: @escaping () -> Void,
+        onClear: @escaping () -> Void,
+        onSave: @escaping (ConfigurationShortcut) -> Void,
+        onReplace: @escaping (ConfigurationShortcut) -> Void
+    ) {
+        self.state = state
+        self.conflictName = conflictName
+        self.onCancel = onCancel
+        self.onClear = onClear
+        self.onSave = onSave
+        self.onReplace = onReplace
+        _shortcut = State(initialValue: state.existingShortcut)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(localization.status("Set Shortcut", chinese: "设置快捷键"))
+                .font(.headline)
+            Text(state.profile.name)
+                .foregroundStyle(.secondary)
+
+            ShortcutRecorderField(
+                shortcut: $shortcut,
+                placeholder: localization.status("Press shortcut", chinese: "按下快捷键"),
+                onCancel: onCancel
+            )
+            .frame(height: 30)
+
+            if let conflict = conflictName(shortcut), let shortcut {
+                Text(localization.status(
+                    "\(shortcut.keyEquivalent) is already used by “\(conflict)”",
+                    chinese: "\(shortcut.keyEquivalent) 已被“\(conflict)”使用"
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Button(localization.status("Clear", chinese: "清除"), action: onClear)
+                    .disabled(state.existingShortcut == nil && shortcut == nil)
+                Spacer()
+                Button(localization.text(.cancel), action: onCancel)
+                if conflictName(shortcut) != nil, let shortcut {
+                    Button(localization.status("Modify", chinese: "修改")) {
+                        self.shortcut = nil
+                    }
+                    Button(localization.status("Replace", chinese: "替换")) {
+                        onReplace(shortcut)
+                    }
+                    .keyboardShortcut(.defaultAction)
+                } else {
+                    Button(localization.text(.save)) {
+                        guard let shortcut else { return }
+                        onSave(shortcut)
+                    }
+                    .disabled(shortcut == nil)
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+        }
+        .padding(18)
+        .frame(width: 340)
+    }
+}
+
+private struct ShortcutRecorderField: NSViewRepresentable {
+    @Binding var shortcut: ConfigurationShortcut?
+    let placeholder: String
+    let onCancel: () -> Void
+
+    func makeNSView(context: Context) -> ShortcutRecorderTextField {
+        let textField = ShortcutRecorderTextField()
+        textField.onCapture = { shortcut in
+            self.shortcut = shortcut
+        }
+        textField.onClear = {
+            self.shortcut = nil
+        }
+        textField.onCancel = onCancel
+        return textField
+    }
+
+    func updateNSView(_ nsView: ShortcutRecorderTextField, context: Context) {
+        nsView.placeholderString = placeholder
+        nsView.stringValue = shortcut?.keyEquivalent ?? ""
+        DispatchQueue.main.async {
+            nsView.window?.makeFirstResponder(nsView)
+        }
+    }
+}
+
+@MainActor
+private final class ShortcutRecorderTextField: NSTextField {
+    var onCapture: ((ConfigurationShortcut) -> Void)?
+    var onClear: (() -> Void)?
+    var onCancel: (() -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        configure()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configure()
+    }
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        switch event.keyCode {
+        case 53:
+            onCancel?()
+        case 51, 117:
+            onClear?()
+        default:
+            guard let shortcut = shortcut(from: event) else {
+                NSSound.beep()
+                return
+            }
+            onCapture?(shortcut)
+        }
+    }
+
+    private func configure() {
+        isEditable = false
+        isSelectable = false
+        alignment = .center
+        bezelStyle = .roundedBezel
+        focusRingType = .default
+    }
+
+    private func shortcut(from event: NSEvent) -> ConfigurationShortcut? {
+        let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+        guard !modifiers.isEmpty,
+              let key = event.charactersIgnoringModifiers?.uppercased(),
+              !key.isEmpty else {
+            return nil
+        }
+
+        return ConfigurationShortcut(
+            keyEquivalent: displayString(modifiers: modifiers, key: key),
+            keyCode: event.keyCode,
+            modifierFlags: modifiers.rawValue
+        )
+    }
+
+    private func displayString(modifiers: NSEvent.ModifierFlags, key: String) -> String {
+        var result = ""
+        if modifiers.contains(.command) {
+            result += "⌘"
+        }
+        if modifiers.contains(.shift) {
+            result += "⇧"
+        }
+        if modifiers.contains(.option) {
+            result += "⌥"
+        }
+        if modifiers.contains(.control) {
+            result += "⌃"
+        }
+        return result + key
     }
 }
 
@@ -2274,6 +2773,7 @@ private extension View {
 struct ProfilesContentView: View {
     @EnvironmentObject private var localization: LocalizationController
     @State private var document = ProfileStoreDocument()
+    @State private var settings = AppSettings()
     @State private var selectedProfileIDs = Set<UUID>()
     @State private var currentFingerprint: DisplaySetupFingerprint?
     @State private var statusMessage = ""
@@ -2281,6 +2781,7 @@ struct ProfilesContentView: View {
     @State private var importPreviewSheet: ProfileImportPreviewSheetState?
     @State private var createProfileSheet: CreateProfileSheetState?
     @State private var renameSheet: RenameSheetState?
+    @State private var shortcutSheet: ShortcutSheetState?
     @State private var expandedGroupIDs = Set<UUID>()
     @State private var didInitializeExpandedGroups = false
     @State private var hoveredGroupID: UUID?
@@ -2445,6 +2946,21 @@ struct ProfilesContentView: View {
 
                                                         Spacer()
                                                     }
+
+                                                    HStack(spacing: 8) {
+                                                        Spacer()
+                                                        Text(shortcutStatus(for: profile))
+                                                            .font(.caption)
+                                                            .foregroundStyle(.secondary)
+                                                        Button(shortcutActionTitle(for: profile)) {
+                                                            shortcutSheet = ShortcutSheetState(
+                                                                profile: profile,
+                                                                existingShortcut: shortcutBinding(for: profile)?.shortcut
+                                                            )
+                                                        }
+                                                        .font(.caption)
+                                                        .buttonStyle(.borderless)
+                                                    }
                                             }
                                             .padding(.vertical, 12)
                                             .onHover { isHovered in
@@ -2549,6 +3065,30 @@ struct ProfilesContentView: View {
             )
             .environmentObject(localization)
         }
+        .sheet(item: $shortcutSheet) { sheet in
+            ShortcutCaptureSheet(
+                state: sheet,
+                conflictName: { shortcut in
+                    shortcutConflictName(for: sheet, shortcut: shortcut)
+                },
+                onCancel: {
+                    shortcutSheet = nil
+                },
+                onClear: {
+                    saveShortcut(nil, for: sheet.profile.id)
+                    shortcutSheet = nil
+                },
+                onSave: { shortcut in
+                    saveShortcut(shortcut, for: sheet.profile.id)
+                    shortcutSheet = nil
+                },
+                onReplace: { shortcut in
+                    saveShortcut(shortcut, for: sheet.profile.id)
+                    shortcutSheet = nil
+                }
+            )
+            .environmentObject(localization)
+        }
     }
 
     private func profileActions(_ profile: DisplayProfile) -> some View {
@@ -2580,6 +3120,54 @@ struct ProfilesContentView: View {
             }
         }
         .frame(width: 88, height: 28, alignment: .trailing)
+    }
+
+    private func shortcutBinding(for profile: DisplayProfile) -> ShortcutBinding? {
+        settings.shortcutBindings.first { $0.profileId == profile.id }
+    }
+
+    private func shortcutStatus(for profile: DisplayProfile) -> String {
+        let value = shortcutBinding(for: profile)?.keyEquivalent
+            ?? localization.status("Not Set", chinese: "未设置")
+        return localization.status("Shortcut: \(value)", chinese: "快捷键：\(value)")
+    }
+
+    private func shortcutActionTitle(for profile: DisplayProfile) -> String {
+        shortcutBinding(for: profile)?.shortcut == nil
+            ? localization.status("Set", chinese: "设置")
+            : localization.status("Edit", chinese: "修改")
+    }
+
+    private func shortcutConflictName(
+        for sheet: ShortcutSheetState,
+        shortcut: ConfigurationShortcut?
+    ) -> String? {
+        guard let shortcut,
+              let conflict = ShortcutBindingEditor.conflict(
+                for: shortcut,
+                profileId: sheet.profile.id,
+                in: settings.shortcutBindings
+              ) else {
+            return nil
+        }
+        return document.profiles.first { $0.id == conflict.profileId }?.name
+    }
+
+    private func saveShortcut(_ shortcut: ConfigurationShortcut?, for profileID: UUID) {
+        if let shortcut {
+            settings.shortcutBindings = ShortcutBindingEditor.replace(
+                shortcut,
+                for: profileID,
+                in: settings.shortcutBindings
+            )
+        } else {
+            settings.shortcutBindings = ShortcutBindingEditor.clear(
+                profileId: profileID,
+                in: settings.shortcutBindings
+            )
+        }
+        saveSettings()
+        NotificationCenter.default.post(name: .displayRecallShortcutsChanged, object: nil)
     }
 
     private func isExpanded(_ group: DisplaySetupGroup) -> Bool {
@@ -2710,6 +3298,22 @@ struct ProfilesContentView: View {
         }
     }
 
+    private func loadSettings() {
+        do {
+            settings = try DisplayRecallStore.live().loadSettings().settings
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func saveSettings() {
+        do {
+            try DisplayRecallStore.live().save(SettingsStoreDocument(settings: settings))
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
     private func saveDocument() {
         do {
             try DisplayRecallStore.live().save(document)
@@ -2729,6 +3333,7 @@ struct ProfilesContentView: View {
 
     private func refreshProfileState(initializesExpandedGroups: Bool = false) async {
         loadProfiles()
+        loadSettings()
         await refreshCurrentFingerprint()
         if initializesExpandedGroups {
             initializeExpandedGroupsIfNeeded()
