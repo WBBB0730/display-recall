@@ -1964,6 +1964,8 @@ private struct ImportPreviewSheet: View {
     }
 }
 
+private let profileHoverAnimation = Animation.easeInOut(duration: 0.18)
+
 private struct IconActionButton: View {
     let systemImage: String
     let title: String
@@ -1983,8 +1985,11 @@ private struct IconActionButton: View {
         .buttonStyle(.borderless)
         .help(title)
         .accessibilityLabel(title)
-        .onHover { isHovered = $0 }
-        .animation(.easeInOut(duration: 0.12), value: isHovered)
+        .onHover { hovered in
+            withAnimation(profileHoverAnimation) {
+                isHovered = hovered
+            }
+        }
     }
 
     private var iconColor: Color {
@@ -1994,22 +1999,32 @@ private struct IconActionButton: View {
 }
 
 private struct ImportantButtonHoverModifier: ViewModifier {
+    let isProminent: Bool
     @State private var isHovered = false
 
     func body(content: Content) -> some View {
         content
+            .brightness(isProminent && isHovered ? 0.08 : 0)
+            .shadow(
+                color: isProminent && isHovered ? Color.accentColor.opacity(0.24) : Color.clear,
+                radius: isProminent && isHovered ? 6 : 0,
+                y: isProminent && isHovered ? 1 : 0
+            )
             .background(
-                isHovered ? Color.primary.opacity(0.08) : Color.clear,
+                !isProminent && isHovered ? Color.primary.opacity(0.08) : Color.clear,
                 in: RoundedRectangle(cornerRadius: 6, style: .continuous)
             )
-            .onHover { isHovered = $0 }
-            .animation(.easeInOut(duration: 0.12), value: isHovered)
+            .onHover { hovered in
+                withAnimation(profileHoverAnimation) {
+                    isHovered = hovered
+                }
+            }
     }
 }
 
 private extension View {
-    func importantButtonHover() -> some View {
-        modifier(ImportantButtonHoverModifier())
+    func importantButtonHover(isProminent: Bool = false) -> some View {
+        modifier(ImportantButtonHoverModifier(isProminent: isProminent))
     }
 }
 
@@ -2051,7 +2066,7 @@ struct ProfilesContentView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .importantButtonHover()
+                .importantButtonHover(isProminent: true)
 
                 Spacer()
 
@@ -2122,7 +2137,7 @@ struct ProfilesContentView: View {
                                     .onHover { isHovered in
                                         hoveredGroupActionID = isHovered ? section.group.id : nil
                                     }
-                                    .animation(.easeInOut(duration: 0.12), value: hoveredGroupID)
+                                    .animation(profileHoverAnimation, value: hoveredGroupID)
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -2139,7 +2154,7 @@ struct ProfilesContentView: View {
                                 .onHover { isHovered in
                                     hoveredGroupID = isHovered ? section.group.id : nil
                                 }
-                                .animation(.easeInOut(duration: 0.12), value: hoveredGroupID)
+                                .animation(profileHoverAnimation, value: hoveredGroupID)
 
                                 if isExpanded(section.group) {
                                     VStack(alignment: .leading, spacing: 0) {
@@ -2158,7 +2173,7 @@ struct ProfilesContentView: View {
                                                     profileActions(profile)
                                                         .opacity(hoveredProfileID == profile.id ? 1 : 0)
                                                         .allowsHitTesting(hoveredProfileID == profile.id)
-                                                        .animation(.easeInOut(duration: 0.12), value: hoveredProfileID)
+                                                        .animation(profileHoverAnimation, value: hoveredProfileID)
                                                 }
 
                                                 HStack(spacing: 12) {
@@ -2168,7 +2183,7 @@ struct ProfilesContentView: View {
                                                     .font(.body)
                                                     .buttonStyle(.borderedProminent)
                                                     .controlSize(.large)
-                                                    .importantButtonHover()
+                                                    .importantButtonHover(isProminent: true)
 
                                                         Toggle(
                                                             localization.text(.automaticApplyConfiguration),
