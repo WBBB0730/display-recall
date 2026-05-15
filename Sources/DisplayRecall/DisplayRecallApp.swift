@@ -2714,8 +2714,8 @@ struct ProfilesContentView: View {
             )
         } else {
             alert.informativeText = localization.status(
-                "This will also delete \(profilesInGroup.count) configurations. Automatic apply settings and shortcuts for these configurations will be removed.",
-                chinese: "这也会删除其中 \(profilesInGroup.count) 个配置。这些配置的自动应用设置和快捷键也会移除。"
+                "This will also delete \(profilesInGroup.count) configurations.",
+                chinese: "这也会删除其中 \(profilesInGroup.count) 个配置。"
             )
         }
         alert.addButton(withTitle: localization.status("Delete", chinese: "删除"))
