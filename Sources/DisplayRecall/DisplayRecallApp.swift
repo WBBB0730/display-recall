@@ -1966,6 +1966,31 @@ private struct ImportPreviewSheet: View {
 
 private let profileHoverAnimation = Animation.easeInOut(duration: 0.18)
 
+private struct TopRoundedRectangle: Shape {
+    let radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let cornerRadius = min(radius, rect.width / 2, rect.height / 2)
+        var path = Path()
+
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + cornerRadius))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + cornerRadius, y: rect.minY),
+            control: CGPoint(x: rect.minX, y: rect.minY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX - cornerRadius, y: rect.minY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY + cornerRadius),
+            control: CGPoint(x: rect.maxX, y: rect.minY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+
+        return path
+    }
+}
+
 private struct IconActionButton: View {
     let systemImage: String
     let title: String
@@ -2145,7 +2170,7 @@ struct ProfilesContentView: View {
                                     hoveredGroupID == section.group.id && hoveredGroupActionID != section.group.id
                                         ? Color.primary.opacity(0.08)
                                         : Color.clear,
-                                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    in: TopRoundedRectangle(radius: 6)
                                 )
                                 .contentShape(Rectangle())
                                 .onTapGesture {
