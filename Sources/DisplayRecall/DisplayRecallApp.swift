@@ -275,9 +275,6 @@ private struct MenuSaveProfilePanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(localization.text(.saveCurrentProfile))
-                .font(.headline)
-
             TextField(localization.text(.profileName), text: $name)
                 .textFieldStyle(.roundedBorder)
                 .focused($nameFocused)
@@ -296,14 +293,6 @@ private struct MenuSaveProfilePanelView: View {
         }
         .padding(16)
         .frame(width: 300)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.regularMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(.quaternary, lineWidth: 1)
-        )
         .onAppear {
             nameFocused = true
         }
@@ -611,18 +600,14 @@ final class StatusBarController: NSObject {
         var panel: NSPanel!
 
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 136),
-            styleMask: [.borderless],
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 1),
+            styleMask: [.titled],
             backing: .buffered,
             defer: false
         )
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
-        panel.hasShadow = true
-        panel.isMovableByWindowBackground = true
+        panel.title = localization.text(.saveCurrentProfile)
         panel.isReleasedWhenClosed = false
-        panel.center()
-        panel.contentView = NSHostingView(
+        let contentView = NSHostingView(
             rootView: MenuSaveProfilePanelView(
                 suggestedName: suggestedName,
                 onCancel: {
@@ -638,6 +623,9 @@ final class StatusBarController: NSObject {
             )
             .environmentObject(localization)
         )
+        panel.contentView = contentView
+        panel.setContentSize(contentView.fittingSize)
+        panel.center()
 
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
