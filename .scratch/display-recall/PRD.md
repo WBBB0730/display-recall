@@ -72,29 +72,31 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 50. As a user, I want imported profiles from another Mac to be allowed but marked as not matching, so that I can inspect or rebind them safely.
 51. As a user, I want same-name import conflicts to preserve both profiles by default, so that data is not lost.
 52. As a user, I want to rebind a profile to the current display setup, so that imported or changed setups can be made useful again.
-53. As a user, I want optional global shortcuts per profile, so that I can switch layouts quickly from the keyboard.
-54. As a user, I want shortcut permissions to be requested only when needed, so that first-run setup stays low friction.
-55. As a user, I want shortcut conflicts inside Display Recall to be prevented, so that two profiles do not use the same shortcut.
-56. As a user, I want common system shortcut conflicts to be warned about, so that I avoid obvious bad bindings.
-57. As a user, I want mirrored display profiles to save and apply correctly, so that projector and mirroring setups are supported.
-58. As a user, I want display-disabling profiles to be treated as high risk, so that I do not accidentally lose visible output.
-59. As a user, I want the primary display state to be preserved through the saved command, so that my menu bar and main screen return correctly.
-60. As a user, I want refresh rate, color depth, scaling, and rotation to be preserved without complex editors, so that profiles stay powerful but simple.
-61. As a user, I want the app to follow my system appearance, so that it looks native in light and dark mode.
-62. As a user, I want English and Simplified Chinese UI, so that the app is comfortable in both languages.
-63. As a user, I want language to follow the system by default, so that the app chooses the right language automatically.
-64. As a user, I want to override the app language manually, so that I can choose English or Simplified Chinese regardless of system language.
-65. As a user, I want profile auto-generated names to use the current UI language, so that new profiles fit the current locale.
-66. As a user, I want existing profile names not to change when language changes, so that names I edited remain stable.
-67. As a user, I want built-in updates, so that I can install new Display Recall releases with one click.
-68. As a user, I want updates to be user-confirmed rather than silent, so that the app does not restart unexpectedly.
-69. As a user, I want release builds signed and notarized, so that macOS security prompts do not undermine trust.
-70. As a user, I want to see third-party acknowledgements, so that bundled dependencies are transparent.
-71. As a contributor, I want the project to be open source under MIT, so that the code can be inspected and improved.
-72. As a maintainer, I want profile data to use schema versions and migrations, so that future data changes are safe.
-73. As a maintainer, I want app data stored per macOS user in Application Support, so that accounts remain isolated.
-74. As a maintainer, I want bundled backend versions fixed and checksummed during release builds, so that bug reports are reproducible.
-75. As a maintainer, I want Universal 2 app distribution and automatic backend architecture selection, so that Apple Silicon and Intel users receive one package.
+53. As a user, I want each configuration row to show whether a shortcut is set, so that I can scan keyboard access without opening Settings.
+54. As a user, I want to set, modify, or clear a shortcut directly from a configuration row, so that shortcut management stays local to the configuration.
+55. As a user, I want shortcut capture to happen by pressing a key combination, so that I do not need to type shortcut strings manually.
+56. As a user, I want in-app shortcut conflicts to offer Modify or Replace, so that I can either pick another shortcut or move the existing binding.
+57. As a user, I want shortcut applies to behave like manual applies, so that high-risk configurations still get the same protection.
+58. As a user, I want shortcut registration failures to be handled lightly, so that the app does not add persistent warning clutter.
+59. As a user, I want mirrored display profiles to save and apply correctly, so that projector and mirroring setups are supported.
+60. As a user, I want display-disabling profiles to be treated as high risk, so that I do not accidentally lose visible output.
+61. As a user, I want the primary display state to be preserved through the saved command, so that my menu bar and main screen return correctly.
+62. As a user, I want refresh rate, color depth, scaling, and rotation to be preserved without complex editors, so that profiles stay powerful but simple.
+63. As a user, I want the app to follow my system appearance, so that it looks native in light and dark mode.
+64. As a user, I want English and Simplified Chinese UI, so that the app is comfortable in both languages.
+65. As a user, I want language to follow the system by default, so that the app chooses the right language automatically.
+66. As a user, I want to override the app language manually, so that I can choose English or Simplified Chinese regardless of system language.
+67. As a user, I want profile auto-generated names to use the current UI language, so that new profiles fit the current locale.
+68. As a user, I want existing profile names not to change when language changes, so that names I edited remain stable.
+69. As a user, I want built-in updates, so that I can install new Display Recall releases with one click.
+70. As a user, I want updates to be user-confirmed rather than silent, so that the app does not restart unexpectedly.
+71. As a user, I want release builds signed and notarized, so that macOS security prompts do not undermine trust.
+72. As a user, I want to see third-party acknowledgements, so that bundled dependencies are transparent.
+73. As a contributor, I want the project to be open source under MIT, so that the code can be inspected and improved.
+74. As a maintainer, I want profile data to use schema versions and migrations, so that future data changes are safe.
+75. As a maintainer, I want app data stored per macOS user in Application Support, so that accounts remain isolated.
+76. As a maintainer, I want bundled backend versions fixed and checksummed during release builds, so that bug reports are reproducible.
+77. As a maintainer, I want Universal 2 app distribution and automatic backend architecture selection, so that Apple Silicon and Intel users receive one package.
 
 ## Implementation Decisions
 
@@ -141,9 +143,15 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 - Import supports one or more profiles, previews conflicts and matching status, allows merge/replace/skip, and marks unmatched profiles without enabling them for automation.
 - Profile IDs are UUIDs. Import-as-new generates a new UUID. Replace-existing keeps the local target UUID.
 - Same-name import conflicts preserve both profiles by default with a generated suffix.
-- Global shortcuts are optional per profile and default to empty.
-- Shortcut setup may request additional permission if needed, but permission is requested only when a user configures shortcuts.
-- Shortcut handling prevents in-app conflicts and warns about common system conflicts; it does not claim to detect every system-wide conflict.
+- Configuration Shortcuts are optional per configuration and default to empty.
+- Configuration rows show shortcut status plus a Set/Edit action in the lower-right row area.
+- Shortcut capture records a key combination from keyboard input rather than typed shortcut strings.
+- Shortcut management stays out of Settings.
+- Shortcut bindings are unique inside Display Recall. If a captured shortcut is already bound elsewhere, the user can Modify the capture or Replace the existing binding.
+- Display Recall does not warn about common system shortcut conflicts.
+- Triggering a Configuration Shortcut is equivalent to manually applying that configuration and must use the same high-risk handling.
+- Shortcut registration failures show a simple failure message and record Activity Log details; they do not create persistent status UI or automatic retry loops.
+- Successful shortcut applies stay lightweight and do not force-open the main window or show extra success notifications.
 - Mirrored display commands are preserved and applied through raw command support; UI may summarize mirroring but does not provide a mirroring editor.
 - Display enable/disable commands are preserved and applied but treated as high-risk. No normal UI toggle is provided.
 - Primary display is preserved through `origin:(0,0)` command semantics and may be shown in summaries.
@@ -162,7 +170,7 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 ## Testing Decisions
 
 - Tests should focus on externally observable behavior and stable contracts, not SwiftUI implementation details.
-- Deep modules should be extracted for displayplacer command parsing, display setup fingerprinting, profile storage/migration, automatic matching, risk classification, restore point state, import/export, shortcut binding validation, and structured Activity Log rendering.
+- Deep modules should be extracted for displayplacer command parsing, display setup fingerprinting, profile storage/migration, automatic matching, risk classification, restore point state, import/export, shortcut binding validation, shortcut capture/registration planning, and structured Activity Log rendering.
 - Parser tests should cover persistent/contextual/serial IDs, mirrored ID groups, enabled/disabled commands, primary display origin, optional hz/color depth, malformed commands, and unknown fields.
 - Matching tests should verify that display setup fingerprints ignore layout parameters but include enabled display set, built-in display presence, and display count.
 - Automation tests should cover startup stability, display-change debounce/countdown, cancellation, manual override, paused state, no-match state, and multi-profile default resolution.
@@ -170,6 +178,7 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 - Restore tests should cover apply, failed apply, manual restore, and one undo after restore.
 - Import/export tests should cover all profiles, selected profiles, conflict strategies, unmatched profiles, UUID handling, schema versions, and future-version rejection.
 - Settings/storage tests should cover per-user data paths, language selection, automatic apply enabled/countdown settings, login item preference, and Dock icon visibility preference.
+- Shortcut tests should cover capture validation, in-app conflict Modify/Replace behavior, clearing bindings, registration planning, and shortcut-triggered manual apply semantics.
 - Automatic Apply tests should cover 0-second immediate application and nonzero countdown panel behavior.
 - Dock icon tests should verify policy resolution for Automatic, Always Show, and Always Hide across main-window open and closed states, and packaged app metadata should verify UI-element launch behavior.
 - Localization tests should verify English and Simplified Chinese coverage for user-visible strings and that saved profile names do not change when language changes.

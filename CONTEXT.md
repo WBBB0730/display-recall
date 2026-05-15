@@ -24,6 +24,10 @@ _Avoid_: Default profile, active profile
 The global automation preference that turns startup/display-change automation on or off and controls the countdown duration.
 _Avoid_: Default profile selection, active profile detection
 
+**Configuration Shortcut**:
+An optional global keyboard shortcut bound to one configuration. Triggering it applies that configuration as a manual apply action.
+_Avoid_: Automatic apply shortcut, display setup shortcut
+
 **Settings**:
 The small set of app-wide preferences that change Display Recall behavior.
 _Avoid_: Diagnostics, About, Logs, backend status, shortcut management
@@ -36,6 +40,14 @@ _Avoid_: Diagnostics, About, Logs, backend status, shortcut management
 - A **Display Setup Group** can have zero or one **Automatic Apply Configuration**.
 - **Settings** contains only app-wide preferences such as launch at login, Dock icon visibility, language, and automatic apply countdown duration.
 - **Automatic Apply** is a global Settings switch plus countdown duration; **Automatic Apply Configuration** selects which configuration runs for a display setup.
+- A **Configuration Shortcut** belongs to exactly one **Configuration**.
+- Triggering a **Configuration Shortcut** is equivalent to manually applying its configuration.
+- A **Configuration Shortcut** is shown on its configuration row as shortcut status plus a Set/Edit action.
+- A **Configuration Shortcut** is captured by pressing the desired key combination, not by typing a shortcut string manually.
+- A **Configuration Shortcut** must be unique inside Display Recall; if a captured shortcut is already bound to another configuration, the user can modify the captured shortcut or replace the existing binding.
+- Triggering a **Configuration Shortcut** uses the same manual apply risk handling as clicking Apply Configuration.
+- If a **Configuration Shortcut** cannot be registered, Display Recall shows a simple failure message and records the failure; it does not show persistent shortcut status or automatically retry.
+- Successful **Configuration Shortcut** applies should stay lightweight: record the apply event and avoid forcing the main window open or showing extra success notifications.
 - An automatic apply countdown of `0` seconds means apply immediately and do not show the pending prevention panel.
 - **Settings** does not contain shortcut management, update checks, backend diagnostics, Activity Log entry points, or About information.
 - Deleting a **Display Setup Group** deletes every **Configuration** in that group.
