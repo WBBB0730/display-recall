@@ -53,14 +53,47 @@ extension Notification.Name {
 
 @MainActor
 enum DockIconController {
-    static func applyCurrentPreference(defaults: UserDefaults = .standard) {
-        let showDockIcon = defaults.bool(forKey: DockIconPreference.userDefaultsKey)
-        NSApp.setActivationPolicy(showDockIcon ? .regular : .accessory)
+    static func applyCurrentPreference(isMainWindowVisible: Bool = false) {
+        let preference = (try? DisplayRecallStore.live().loadSettings().settings.dockIconVisibility)
+            ?? storedPreference(defaults: .standard)
+        apply(preference: preference, isMainWindowVisible: isMainWindowVisible)
     }
 
-    static func apply(showDockIcon: Bool) {
-        UserDefaults.standard.set(showDockIcon, forKey: DockIconPreference.userDefaultsKey)
-        NSApp.setActivationPolicy(showDockIcon ? .regular : .accessory)
+    static func apply(
+        preference: DockIconVisibilityPreference,
+        isMainWindowVisible: Bool
+    ) {
+        UserDefaults.standard.set(preference.rawValue, forKey: DockIconVisibilityPreference.userDefaultsKey)
+        NSApp.setActivationPolicy(
+            DockIconVisibilityPolicy.activationPolicy(
+                preference: preference,
+                isMainWindowVisible: isMainWindowVisible
+            ).appKitActivationPolicy
+        )
+    }
+
+    private static func storedPreference(defaults: UserDefaults) -> DockIconVisibilityPreference {
+        if let rawValue = defaults.string(forKey: DockIconVisibilityPreference.userDefaultsKey),
+           let preference = DockIconVisibilityPreference(rawValue: rawValue) {
+            return preference
+        }
+        if defaults.object(forKey: DockIconVisibilityPreference.legacyShowDockIconUserDefaultsKey) != nil {
+            return defaults.bool(forKey: DockIconVisibilityPreference.legacyShowDockIconUserDefaultsKey)
+                ? .alwaysShow
+                : .automatic
+        }
+        return DockIconVisibilityPreference.defaultValue
+    }
+}
+
+private extension DockIconActivationPolicy {
+    var appKitActivationPolicy: NSApplication.ActivationPolicy {
+        switch self {
+        case .regular:
+            .regular
+        case .accessory:
+            .accessory
+        }
     }
 }
 
@@ -321,12 +354,18 @@ private struct MenuSaveProfilePanelView: View {
 }
 
 @MainActor
-final class MainWindowController {
+final class MainWindowController: NSObject, NSWindowDelegate {
     static let shared = MainWindowController()
 
     private var window: NSWindow?
 
-    private init() {}
+    private override init() {
+        super.init()
+    }
+
+    var isMainWindowVisible: Bool {
+        window?.isVisible == true
+    }
 
     func show(section: MainWindowSection) {
         MainWindowRouter.shared.select(section)
@@ -346,11 +385,17 @@ final class MainWindowController {
                     .environmentObject(LocalizationController.shared)
             )
             window.center()
+            window.delegate = self
             self.window = window
         }
 
+        DockIconController.applyCurrentPreference(isMainWindowVisible: true)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        DockIconController.applyCurrentPreference(isMainWindowVisible: false)
     }
 }
 
@@ -3279,7 +3324,8 @@ struct AboutPageView: View {
 struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var localization: LocalizationController
-    @AppStorage(DockIconPreference.userDefaultsKey) private var showDockIcon = false
+    @AppStorage(DockIconVisibilityPreference.userDefaultsKey)
+    private var dockIconVisibilityRaw = DockIconVisibilityPreference.defaultValue.rawValue
     @State private var settings = AppSettings()
     @State private var activityLog = ActivityLogStoreDocument()
     @State private var statusMessage = ""
@@ -3297,12 +3343,23 @@ struct SettingsView: View {
                     }
                 ))
 
-                Toggle(localization.text(.showDockIcon), isOn: $showDockIcon)
-                    .onChange(of: showDockIcon) { newValue in
-                        settings.showDockIcon = newValue
-                        DockIconController.apply(showDockIcon: newValue)
+                Picker(localization.text(.dockIconVisibility), selection: Binding(
+                    get: { settings.dockIconVisibility },
+                    set: { newValue in
+                        settings.dockIconVisibility = newValue
+                        dockIconVisibilityRaw = newValue.rawValue
+                        DockIconController.apply(
+                            preference: newValue,
+                            isMainWindowVisible: MainWindowController.shared.isMainWindowVisible
+                        )
                         saveSettings()
                     }
+                )) {
+                    ForEach(DockIconVisibilityPreference.allCases, id: \.self) { preference in
+                        Text(localizedDockIconVisibility(preference)).tag(preference)
+                    }
+                }
+                .pickerStyle(.segmented)
 
                 Picker(localization.text(.language), selection: Binding(
                     get: { settings.language },
@@ -3416,7 +3473,7 @@ struct SettingsView: View {
         do {
             settings = try DisplayRecallStore.live().loadSettings().settings
             localization.preference = settings.language
-            showDockIcon = settings.showDockIcon
+            dockIconVisibilityRaw = settings.dockIconVisibility.rawValue
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -3435,6 +3492,17 @@ struct SettingsView: View {
             try DisplayRecallStore.live().save(SettingsStoreDocument(settings: settings))
         } catch {
             statusMessage = error.localizedDescription
+        }
+    }
+
+    private func localizedDockIconVisibility(_ preference: DockIconVisibilityPreference) -> String {
+        switch preference {
+        case .automatic:
+            localization.text(.dockIconAutomatic)
+        case .alwaysShow:
+            localization.text(.dockIconAlwaysShow)
+        case .alwaysHide:
+            localization.text(.dockIconAlwaysHide)
         }
     }
 

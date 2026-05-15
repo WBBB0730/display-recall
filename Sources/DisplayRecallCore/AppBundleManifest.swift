@@ -5,6 +5,7 @@ public struct AppBundleManifest: Equatable, Sendable {
     public let minimumSystemVersion: String
     public let localizations: [String]
     public let allowsMixedLocalizations: Bool
+    public let launchesAsUIElement: Bool
 
     public static let `default` = AppBundleManifest(
         bundleName: AppConfiguration.displayName,
@@ -12,6 +13,7 @@ public struct AppBundleManifest: Equatable, Sendable {
         bundleIdentifier: AppConfiguration.bundleIdentifier,
         minimumSystemVersion: "13.0",
         localizations: ["en", "zh-Hans"],
-        allowsMixedLocalizations: true
+        allowsMixedLocalizations: true,
+        launchesAsUIElement: true
     )
 }

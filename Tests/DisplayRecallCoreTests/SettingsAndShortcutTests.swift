@@ -8,8 +8,23 @@ final class SettingsAndShortcutTests: XCTestCase {
         XCTAssertFalse(settings.launchAtLogin)
         XCTAssertTrue(settings.automaticApplyEnabled)
         XCTAssertEqual(settings.automaticApplyCountdownSeconds, 5)
+        XCTAssertEqual(settings.dockIconVisibility, .automatic)
         XCTAssertEqual(settings.language, .system)
         XCTAssertEqual(settings.backendSelection.source, .bundled)
+    }
+
+    func testLegacyShowDockIconSettingMigratesToVisibilityPreference() throws {
+        let visibleJSON = #"{"showDockIcon":true}"#.data(using: .utf8)!
+        let hiddenJSON = #"{"showDockIcon":false}"#.data(using: .utf8)!
+
+        XCTAssertEqual(
+            try JSONDecoder().decode(AppSettings.self, from: visibleJSON).dockIconVisibility,
+            .alwaysShow
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(AppSettings.self, from: hiddenJSON).dockIconVisibility,
+            .automatic
+        )
     }
 
     func testLanguageChoicesAndGeneratedNamesDoNotMutateExistingProfiles() {

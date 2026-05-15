@@ -37,8 +37,39 @@ final class AppConfigurationTests: XCTestCase {
     }
 
     func testDockIconPreferenceHasAHiddenDefaultAndSettingsKey() {
-        XCTAssertEqual(DockIconPreference.defaultValue, .hidden)
-        XCTAssertEqual(DockIconPreference.userDefaultsKey, "showDockIcon")
+        XCTAssertEqual(DockIconVisibilityPreference.defaultValue, .automatic)
+        XCTAssertEqual(DockIconVisibilityPreference.userDefaultsKey, "dockIconVisibility")
+    }
+
+    func testDockIconVisibilityPolicyResolvesWindowAndPreferenceState() {
+        XCTAssertEqual(
+            DockIconVisibilityPolicy.activationPolicy(
+                preference: .automatic,
+                isMainWindowVisible: false
+            ),
+            .accessory
+        )
+        XCTAssertEqual(
+            DockIconVisibilityPolicy.activationPolicy(
+                preference: .automatic,
+                isMainWindowVisible: true
+            ),
+            .regular
+        )
+        XCTAssertEqual(
+            DockIconVisibilityPolicy.activationPolicy(
+                preference: .alwaysShow,
+                isMainWindowVisible: false
+            ),
+            .regular
+        )
+        XCTAssertEqual(
+            DockIconVisibilityPolicy.activationPolicy(
+                preference: .alwaysHide,
+                isMainWindowVisible: true
+            ),
+            .accessory
+        )
     }
 
     func testAppBundleManifestSupportsLaunchingAsDisplayRecall() {
@@ -50,5 +81,6 @@ final class AppConfigurationTests: XCTestCase {
         XCTAssertEqual(manifest.minimumSystemVersion, "13.0")
         XCTAssertEqual(manifest.localizations, ["en", "zh-Hans"])
         XCTAssertTrue(manifest.allowsMixedLocalizations)
+        XCTAssertTrue(manifest.launchesAsUIElement)
     }
 }

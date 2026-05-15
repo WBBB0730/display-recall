@@ -14,16 +14,16 @@ Display Recall should launch hidden from the Dock. The default Dock icon mode is
 
 ## Acceptance criteria
 
-- [ ] The packaged app declares UI-element launch behavior so the Dock icon does not flash during startup.
-- [ ] Dock icon visibility setting has three modes: Automatic, Always Show, and Always Hide.
-- [ ] Automatic is the default for new settings and migrated settings.
-- [ ] In Automatic mode, opening the main window shows the Dock icon.
-- [ ] In Automatic mode, closing the main window hides the Dock icon while the app keeps running in the menu bar.
-- [ ] In Always Show mode, the Dock icon stays visible regardless of main-window state.
-- [ ] In Always Hide mode, the Dock icon stays hidden regardless of main-window state.
-- [ ] Settings exposes the three-mode choice with English and Simplified Chinese labels.
-- [ ] Existing settings that stored the old boolean Show Dock icon preference continue to load sensibly.
-- [ ] Tests cover Dock icon policy resolution and packaged app metadata.
+- [x] The packaged app declares UI-element launch behavior so the Dock icon does not flash during startup.
+- [x] Dock icon visibility setting has three modes: Automatic, Always Show, and Always Hide.
+- [x] Automatic is the default for new settings and migrated settings.
+- [x] In Automatic mode, opening the main window shows the Dock icon.
+- [x] In Automatic mode, closing the main window hides the Dock icon while the app keeps running in the menu bar.
+- [x] In Always Show mode, the Dock icon stays visible regardless of main-window state.
+- [x] In Always Hide mode, the Dock icon stays hidden regardless of main-window state.
+- [x] Settings exposes the three-mode choice with English and Simplified Chinese labels.
+- [x] Existing settings that stored the old boolean Show Dock icon preference continue to load sensibly.
+- [x] Tests cover Dock icon policy resolution and packaged app metadata.
 
 ## Blocked by
 

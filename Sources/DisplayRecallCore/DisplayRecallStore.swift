@@ -2,7 +2,7 @@ import Foundation
 
 public struct AppSettings: Equatable, Sendable, Codable {
     public var setupCompleted: Bool
-    public var showDockIcon: Bool
+    public var dockIconVisibility: DockIconVisibilityPreference
     public var launchAtLogin: Bool
     public var automaticApplyEnabled: Bool
     public var automaticApplyCountdownSeconds: Int
@@ -10,9 +10,19 @@ public struct AppSettings: Equatable, Sendable, Codable {
     public var backendSelection: BackendSelection
     public var shortcutBindings: [ShortcutBinding]
 
+    public var showDockIcon: Bool {
+        get {
+            dockIconVisibility == .alwaysShow
+        }
+        set {
+            dockIconVisibility = newValue ? .alwaysShow : .automatic
+        }
+    }
+
     public init(
         setupCompleted: Bool = false,
-        showDockIcon: Bool = false,
+        showDockIcon: Bool? = nil,
+        dockIconVisibility: DockIconVisibilityPreference = DockIconVisibilityPreference.defaultValue,
         launchAtLogin: Bool = false,
         automaticApplyEnabled: Bool = true,
         automaticApplyCountdownSeconds: Int = 5,
@@ -21,13 +31,67 @@ public struct AppSettings: Equatable, Sendable, Codable {
         shortcutBindings: [ShortcutBinding] = []
     ) {
         self.setupCompleted = setupCompleted
-        self.showDockIcon = showDockIcon
+        self.dockIconVisibility = showDockIcon.map { $0 ? .alwaysShow : .automatic } ?? dockIconVisibility
         self.launchAtLogin = launchAtLogin
         self.automaticApplyEnabled = automaticApplyEnabled
         self.automaticApplyCountdownSeconds = automaticApplyCountdownSeconds
         self.language = language
         self.backendSelection = backendSelection
         self.shortcutBindings = shortcutBindings
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case setupCompleted
+        case showDockIcon
+        case dockIconVisibility
+        case launchAtLogin
+        case automaticApplyEnabled
+        case automaticApplyCountdownSeconds
+        case language
+        case backendSelection
+        case shortcutBindings
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        setupCompleted = try container.decodeIfPresent(Bool.self, forKey: .setupCompleted) ?? false
+        if let preference = try container.decodeIfPresent(
+            DockIconVisibilityPreference.self,
+            forKey: .dockIconVisibility
+        ) {
+            dockIconVisibility = preference
+        } else if let legacyShowDockIcon = try container.decodeIfPresent(Bool.self, forKey: .showDockIcon) {
+            dockIconVisibility = legacyShowDockIcon ? .alwaysShow : .automatic
+        } else {
+            dockIconVisibility = DockIconVisibilityPreference.defaultValue
+        }
+        launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+        automaticApplyEnabled = try container.decodeIfPresent(Bool.self, forKey: .automaticApplyEnabled) ?? true
+        automaticApplyCountdownSeconds = try container.decodeIfPresent(
+            Int.self,
+            forKey: .automaticApplyCountdownSeconds
+        ) ?? 5
+        language = try container.decodeIfPresent(LanguagePreference.self, forKey: .language) ?? .system
+        backendSelection = try container.decodeIfPresent(
+            BackendSelection.self,
+            forKey: .backendSelection
+        ) ?? BackendSelection()
+        shortcutBindings = try container.decodeIfPresent(
+            [ShortcutBinding].self,
+            forKey: .shortcutBindings
+        ) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(setupCompleted, forKey: .setupCompleted)
+        try container.encode(dockIconVisibility, forKey: .dockIconVisibility)
+        try container.encode(launchAtLogin, forKey: .launchAtLogin)
+        try container.encode(automaticApplyEnabled, forKey: .automaticApplyEnabled)
+        try container.encode(automaticApplyCountdownSeconds, forKey: .automaticApplyCountdownSeconds)
+        try container.encode(language, forKey: .language)
+        try container.encode(backendSelection, forKey: .backendSelection)
+        try container.encode(shortcutBindings, forKey: .shortcutBindings)
     }
 }
 

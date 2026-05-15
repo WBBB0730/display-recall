@@ -72,6 +72,9 @@ public enum AppLocalizationKey: String, CaseIterable, Equatable, Sendable {
     case displayRecall
     case displayRecallSetupDescription
     case displaySetup
+    case dockIconAutomatic
+    case dockIconAlwaysHide
+    case dockIconAlwaysShow
     case export
     case exportProfiles
     case exportScope
@@ -120,7 +123,7 @@ public enum AppLocalizationKey: String, CaseIterable, Equatable, Sendable {
     case setDefault
     case shortcuts
     case shortcutsDescription
-    case showDockIcon
+    case dockIconVisibility
     case skipConflicts
     case source
     case status
@@ -201,6 +204,10 @@ public enum AppLocalization {
             .displayRecall: "Display Recall",
             .displayRecallSetupDescription: "Display Recall will verify its bundled displayplacer backend, then save your current display layout as the first profile.",
             .displaySetup: "Display Setup",
+            .dockIconAutomatic: "Automatic",
+            .dockIconAlwaysHide: "Always Hide",
+            .dockIconAlwaysShow: "Always Show",
+            .dockIconVisibility: "Dock icon",
             .export: "Export",
             .exportProfiles: "Export Profiles",
             .exportScope: "Export scope",
@@ -249,7 +256,6 @@ public enum AppLocalization {
             .setDefault: "Set Default",
             .shortcuts: "Shortcuts",
             .shortcutsDescription: "Shortcuts are optional. Permission is requested only after a shortcut is configured.",
-            .showDockIcon: "Show Dock icon",
             .skipConflicts: "Skip Conflicts",
             .source: "Source",
             .status: "Status",
@@ -302,6 +308,10 @@ public enum AppLocalization {
             .displayRecall: "Display Recall",
             .displayRecallSetupDescription: "Display Recall 会验证内置 displayplacer 后端，然后把当前显示器布局保存为第一个配置。",
             .displaySetup: "显示器组合",
+            .dockIconAutomatic: "自动",
+            .dockIconAlwaysHide: "始终隐藏",
+            .dockIconAlwaysShow: "始终显示",
+            .dockIconVisibility: "Dock 图标",
             .export: "导出",
             .exportProfiles: "导出配置",
             .exportScope: "导出范围",
@@ -350,7 +360,6 @@ public enum AppLocalization {
             .setDefault: "设为默认",
             .shortcuts: "快捷键",
             .shortcutsDescription: "快捷键是可选的。只有配置快捷键后才会请求权限。",
-            .showDockIcon: "显示 Dock 图标",
             .skipConflicts: "跳过冲突",
             .source: "来源",
             .status: "状态",

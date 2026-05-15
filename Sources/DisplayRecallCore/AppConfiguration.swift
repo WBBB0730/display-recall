@@ -96,12 +96,35 @@ public enum MainWindowSection: String, CaseIterable, Equatable, Identifiable, Se
     }
 }
 
-public enum DockIconPreference: String, Equatable, Sendable {
-    case hidden
-    case visible
+public enum DockIconVisibilityPreference: String, CaseIterable, Equatable, Sendable, Codable {
+    case automatic
+    case alwaysShow
+    case alwaysHide
 
-    public static let defaultValue = DockIconPreference.hidden
-    public static let userDefaultsKey = "showDockIcon"
+    public static let defaultValue = DockIconVisibilityPreference.automatic
+    public static let userDefaultsKey = "dockIconVisibility"
+    public static let legacyShowDockIconUserDefaultsKey = "showDockIcon"
+}
+
+public enum DockIconActivationPolicy: Equatable, Sendable {
+    case regular
+    case accessory
+}
+
+public enum DockIconVisibilityPolicy {
+    public static func activationPolicy(
+        preference: DockIconVisibilityPreference,
+        isMainWindowVisible: Bool
+    ) -> DockIconActivationPolicy {
+        switch preference {
+        case .automatic:
+            isMainWindowVisible ? .regular : .accessory
+        case .alwaysShow:
+            .regular
+        case .alwaysHide:
+            .accessory
+        }
+    }
 }
 
 public enum SetupPreference {
