@@ -296,6 +296,14 @@ private struct MenuSaveProfilePanelView: View {
         }
         .padding(16)
         .frame(width: 300)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.regularMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.quaternary, lineWidth: 1)
+        )
         .onAppear {
             nameFocused = true
         }
@@ -603,14 +611,14 @@ final class StatusBarController: NSObject {
         var panel: NSPanel!
 
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 148),
-            styleMask: [.titled, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 136),
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
-        panel.title = ""
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = true
         panel.isMovableByWindowBackground = true
         panel.isReleasedWhenClosed = false
         panel.center()
