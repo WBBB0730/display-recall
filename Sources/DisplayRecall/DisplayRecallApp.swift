@@ -2304,15 +2304,16 @@ struct ProfilesContentView: View {
         }
         .padding(.vertical, 20)
         .task {
-            loadProfiles()
-            await refreshCurrentFingerprint()
-            initializeExpandedGroupsIfNeeded()
+            await refreshProfileState(initializesExpandedGroups: true)
         }
         .onReceive(NotificationCenter.default.publisher(for: .displayRecallProfilesChanged)) { _ in
             Task {
-                loadProfiles()
-                await refreshCurrentFingerprint()
-                syncExpandedGroupsWithVisibleSections()
+                await refreshProfileState()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .displayRecallDisplaySetupChanged)) { _ in
+            Task {
+                await refreshProfileState()
             }
         }
         .sheet(item: $exportSheet) { sheet in
@@ -2523,6 +2524,8 @@ struct ProfilesContentView: View {
         do {
             let store = try DisplayRecallStore.live()
             document = try store.loadProfiles()
+            let availableProfileIDs = Set(document.profiles.map(\.id))
+            selectedProfileIDs.formIntersection(availableProfileIDs)
             if selectedProfileIDs.isEmpty, let firstProfileID = document.profiles.first?.id {
                 selectedProfileIDs = [firstProfileID]
             }
@@ -2546,6 +2549,16 @@ struct ProfilesContentView: View {
             return
         }
         currentFingerprint = layout.displaySetupFingerprint
+    }
+
+    private func refreshProfileState(initializesExpandedGroups: Bool = false) async {
+        loadProfiles()
+        await refreshCurrentFingerprint()
+        if initializesExpandedGroups {
+            initializeExpandedGroupsIfNeeded()
+        } else {
+            syncExpandedGroupsWithVisibleSections()
+        }
     }
 
     private func saveCurrentLayout() async {
@@ -2582,6 +2595,8 @@ struct ProfilesContentView: View {
                 displaySetupGroupLanguage: localization.preference
             )
             selectedProfileIDs = Set(document.profiles.last.map { [$0.id] } ?? [])
+            currentFingerprint = layout.displaySetupFingerprint
+            syncExpandedGroupsWithVisibleSections()
             saveDocument()
             statusMessage = localization.status("Saved current layout.", chinese: "已保存当前布局。")
         } catch {
@@ -2613,6 +2628,7 @@ struct ProfilesContentView: View {
                 )
             )
             statusMessage = result.exitCode == 0 ? localization.appliedProfile(profile.name) : result.stderr
+            await refreshProfileState()
         } catch {
             statusMessage = error.localizedDescription
         }

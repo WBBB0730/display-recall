@@ -103,6 +103,7 @@ Profile 主界面不再展示右侧详情编辑器，不再常驻展示 fingerpr
 - Generated names start at 1 and choose the first non-conflicting name.
 - Existing group names and profile names are not mutated by language changes.
 - The current display setup group is expanded by default.
+- The Profile page refreshes both stored profiles and the current display setup fingerprint when the system display setup changes, when profile data changes, and after a manual apply from the Profile page.
 - Non-current non-empty display setup groups are visible and collapsed by default.
 - Non-current empty display setup groups are hidden.
 - Current empty display setup groups are visible only if they are stored groups.
@@ -154,6 +155,7 @@ Profile 主界面不再展示右侧详情编辑器，不再常驻展示 fingerpr
 - Add lazy-create tests for saving current layout when no group exists for the current fingerprint.
 - Add grouping projection tests for current non-empty, stored current empty, non-current non-empty, non-current empty, and missing-current-group cases.
 - Add grouping projection tests that current group is expanded by default and non-current groups are collapsed by default.
+- Add integration or smoke coverage, where practical, for Profile page freshness after display setup changes, profile data changes, and manual apply.
 - Add automatic apply switch tests that enabling one profile disables siblings in the same fingerprint group.
 - Add automatic apply switch tests that disabling the active switch clears the matching rule.
 - Add automatic apply switch tests that profiles in different groups do not affect each other.
