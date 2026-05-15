@@ -12,23 +12,23 @@ Move import/export out of the primary toolbar and into More menus while preservi
 
 ## Acceptance criteria
 
-- [ ] The list-level More menu includes Import Configurations.
-- [ ] The list-level More menu includes Export Configurations.
-- [ ] The profile row More menu includes Export Configuration.
-- [ ] List-level export exports all profiles/configurations.
-- [ ] Row-level export exports only that profile/configuration.
-- [ ] List-level export and row-level export use the same backup format.
-- [ ] Import continues to support existing backup documents.
-- [ ] Import preview and conflict handling continue to preserve existing behavior.
-- [ ] Export preserves profile data that is hidden from the simplified UI, including notes and raw command data.
-- [ ] Export includes any display setup group data required by the new schema without breaking existing profile data.
-- [ ] The simplified UI does not expose multi-select export.
-- [ ] Import/export actions are available but do not dominate the main Profile surface.
-- [ ] User-facing strings are localized in English and Simplified Chinese.
-- [ ] Tests cover all-profile export.
-- [ ] Tests cover single-profile export.
-- [ ] Tests cover import compatibility with existing backup documents.
-- [ ] Tests cover preserving hidden fields through export/import.
+- [x] The list-level More menu includes Import Configurations.
+- [x] The list-level More menu includes Export Configurations.
+- [x] The profile row More menu includes Export Configuration.
+- [x] List-level export exports all profiles/configurations.
+- [x] Row-level export exports only that profile/configuration.
+- [x] List-level export and row-level export use the same backup format.
+- [x] Import continues to support existing backup documents.
+- [x] Import preview and conflict handling continue to preserve existing behavior.
+- [x] Export preserves profile data that is hidden from the simplified UI, including notes and raw command data.
+- [x] Export includes any display setup group data required by the new schema without breaking existing profile data.
+- [x] The simplified UI does not expose multi-select export.
+- [x] Import/export actions are available but do not dominate the main Profile surface.
+- [x] User-facing strings are localized in English and Simplified Chinese.
+- [x] Tests cover all-profile export.
+- [x] Tests cover single-profile export.
+- [x] Tests cover import compatibility with existing backup documents.
+- [x] Tests cover preserving hidden fields through export/import.
 
 ## Blocked by
 

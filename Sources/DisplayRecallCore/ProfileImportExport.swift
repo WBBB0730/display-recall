@@ -8,6 +8,7 @@ public struct ProfileBackupDocument: Equatable, Sendable, Codable {
     public var exportedAt: Date
     public var profiles: [DisplayProfile]
     public var automaticDefaultRules: [AutomaticDefaultRule]
+    public var displaySetupGroups: [DisplaySetupGroup]
     public var settings: AppSettings?
 
     public init(
@@ -16,6 +17,7 @@ public struct ProfileBackupDocument: Equatable, Sendable, Codable {
         exportedAt: Date = Date(),
         profiles: [DisplayProfile] = [],
         automaticDefaultRules: [AutomaticDefaultRule] = [],
+        displaySetupGroups: [DisplaySetupGroup] = [],
         settings: AppSettings? = nil
     ) {
         self.schemaVersion = schemaVersion
@@ -23,7 +25,32 @@ public struct ProfileBackupDocument: Equatable, Sendable, Codable {
         self.exportedAt = exportedAt
         self.profiles = profiles
         self.automaticDefaultRules = automaticDefaultRules
+        self.displaySetupGroups = displaySetupGroups
         self.settings = settings
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case appVersion
+        case exportedAt
+        case profiles
+        case automaticDefaultRules
+        case displaySetupGroups
+        case settings
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        appVersion = try container.decode(String.self, forKey: .appVersion)
+        exportedAt = try container.decode(Date.self, forKey: .exportedAt)
+        profiles = try container.decode([DisplayProfile].self, forKey: .profiles)
+        automaticDefaultRules = try container.decode([AutomaticDefaultRule].self, forKey: .automaticDefaultRules)
+        displaySetupGroups = try container.decodeIfPresent(
+            [DisplaySetupGroup].self,
+            forKey: .displaySetupGroups
+        ) ?? []
+        settings = try container.decodeIfPresent(AppSettings.self, forKey: .settings)
     }
 }
 
@@ -94,11 +121,16 @@ public enum ProfileExporter {
     ) -> ProfileBackupDocument {
         let selectedProfiles = selectedProfiles(in: document, selection: selection)
         let selectedIDs = Set(selectedProfiles.map(\.id))
+        let selectedFingerprints = Set(selectedProfiles.map(\.displaySetupFingerprint))
         let selectedRules = document.automaticDefaultRules.filter { selectedIDs.contains($0.profileId) }
+        let selectedGroups = document.displaySetupGroups.filter {
+            selectedFingerprints.contains($0.fingerprint)
+        }
 
         return ProfileBackupDocument(
             profiles: selectedProfiles,
             automaticDefaultRules: selectedRules,
+            displaySetupGroups: selectedGroups,
             settings: settings
         )
     }
@@ -158,6 +190,7 @@ public enum ProfileImporter {
 
         var profiles = currentDocument.profiles
         var automaticRules = currentDocument.automaticDefaultRules
+        var displaySetupGroups = currentDocument.displaySetupGroups
         var importedIDMap: [UUID: UUID] = [:]
 
         for importedProfile in backup.profiles {
@@ -206,11 +239,19 @@ public enum ProfileImporter {
             )
         }
         automaticRules.append(contentsOf: currentImportedRules)
+        mergeDisplaySetupGroups(
+            &displaySetupGroups,
+            importedGroups: backup.displaySetupGroups,
+            importedProfiles: profiles.filter { profile in
+                importedIDMap.values.contains(profile.id)
+            }
+        )
 
         return ProfileStoreDocument(
             schemaVersion: currentDocument.schemaVersion,
             profiles: profiles,
-            automaticDefaultRules: automaticRules
+            automaticDefaultRules: automaticRules,
+            displaySetupGroups: displaySetupGroups
         )
     }
 
@@ -244,6 +285,38 @@ public enum ProfileImporter {
             candidate = "\(baseName) \(suffix)"
         }
         return candidate
+    }
+
+    private static func mergeDisplaySetupGroups(
+        _ groups: inout [DisplaySetupGroup],
+        importedGroups: [DisplaySetupGroup],
+        importedProfiles: [DisplayProfile]
+    ) {
+        var knownFingerprints = Set(groups.map(\.fingerprint))
+        var knownNames = groups.map(\.name)
+
+        for group in importedGroups where !knownFingerprints.contains(group.fingerprint) {
+            groups.append(group)
+            knownFingerprints.insert(group.fingerprint)
+            knownNames.append(group.name)
+        }
+
+        for profile in importedProfiles where !knownFingerprints.contains(profile.displaySetupFingerprint) {
+            let name = DisplaySetupGroupNameGenerator.firstAvailableDefaultName(
+                existingNames: knownNames,
+                language: .english
+            )
+            groups.append(
+                DisplaySetupGroup(
+                    fingerprint: profile.displaySetupFingerprint,
+                    name: name,
+                    createdAt: profile.createdAt,
+                    updatedAt: profile.updatedAt
+                )
+            )
+            knownFingerprints.insert(profile.displaySetupFingerprint)
+            knownNames.append(name)
+        }
     }
 
     private static func copy(

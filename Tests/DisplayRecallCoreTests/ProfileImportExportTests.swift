@@ -4,12 +4,18 @@ import XCTest
 final class ProfileImportExportTests: XCTestCase {
     func testExportsAllProfilesAndSettingsWithoutLogsOrRestorePoints() throws {
         let home = DisplayProfile.fixture(id: Self.homeID, name: "Home")
-        let office = DisplayProfile.fixture(id: Self.officeID, name: "Office")
+        let office = DisplayProfile.fixture(id: Self.officeID, name: "Office", fingerprint: "OFFICE|builtIn:false|count:2")
+        let homeGroup = DisplaySetupGroup(
+            id: Self.homeGroupID,
+            fingerprint: home.displaySetupFingerprint,
+            name: "Desk"
+        )
         let document = ProfileStoreDocument(
             profiles: [home, office],
             automaticDefaultRules: [
                 AutomaticDefaultRule(displaySetupFingerprint: home.displaySetupFingerprint, profileId: home.id)
-            ]
+            ],
+            displaySetupGroups: [homeGroup]
         )
         let settings = AppSettings(setupCompleted: true, automaticApplyCountdownSeconds: 5)
 
@@ -20,15 +26,24 @@ final class ProfileImportExportTests: XCTestCase {
         XCTAssertEqual(backup.profiles.map(\.name), ["Home", "Office"])
         XCTAssertEqual(backup.settings, settings)
         XCTAssertEqual(backup.automaticDefaultRules.count, 1)
+        XCTAssertEqual(backup.displaySetupGroups, [homeGroup])
         XCTAssertFalse(json.contains("activity-log"))
         XCTAssertFalse(json.contains("restore"))
     }
 
-    func testExportsSelectedSingleAndMultipleProfiles() {
+    func testExportsSelectedSingleAndMultipleProfilesWithSameBackupFormat() {
         let home = DisplayProfile.fixture(id: Self.homeID, name: "Home")
-        let office = DisplayProfile.fixture(id: Self.officeID, name: "Office")
+        let office = DisplayProfile.fixture(id: Self.officeID, name: "Office", fingerprint: "OFFICE|builtIn:false|count:2")
         let travel = DisplayProfile.fixture(id: Self.travelID, name: "Travel")
-        let document = ProfileStoreDocument(profiles: [home, office, travel])
+        let officeGroup = DisplaySetupGroup(
+            id: Self.officeGroupID,
+            fingerprint: office.displaySetupFingerprint,
+            name: "Office displays"
+        )
+        let document = ProfileStoreDocument(
+            profiles: [home, office, travel],
+            displaySetupGroups: [officeGroup]
+        )
 
         let single = ProfileExporter.export(document: document, settings: nil, selection: .single(office.id))
         let multiple = ProfileExporter.export(
@@ -38,7 +53,81 @@ final class ProfileImportExportTests: XCTestCase {
         )
 
         XCTAssertEqual(single.profiles.map(\.name), ["Office"])
+        XCTAssertEqual(single.displaySetupGroups, [officeGroup])
         XCTAssertEqual(multiple.profiles.map(\.name), ["Home", "Travel"])
+        XCTAssertTrue(multiple.displaySetupGroups.isEmpty)
+        XCTAssertEqual(single.schemaVersion, multiple.schemaVersion)
+    }
+
+    func testImportSupportsLegacyBackupDocumentsAndPreservesHiddenFields() throws {
+        let rawCommand = #"displayplacer "id:AAA res:1280x720 enabled:true origin:(0,0) degree:0""#
+        let json = """
+        {
+          "schemaVersion": 1,
+          "appVersion": "0.1.0",
+          "exportedAt": "2026-05-15T00:00:00Z",
+          "profiles": [
+            {
+              "schemaVersion": 1,
+              "id": "\(Self.homeID.uuidString)",
+              "name": "Home",
+              "notes": "Hidden note",
+              "command": "\(rawCommand.replacingOccurrences(of: "\"", with: "\\\""))",
+              "displaySetupFingerprint": {
+                "rawValue": "AAA|builtIn:false|count:1"
+              },
+              "displaySummary": "Hidden summary",
+              "backendVersion": "1.4.0",
+              "createdByAppVersion": "0.1.0",
+              "updatedByAppVersion": "0.1.0",
+              "isCommandEdited": true,
+              "importedNeedsFirstApplyConfirmation": false,
+              "createdAt": "2026-05-15T00:00:00Z",
+              "updatedAt": "2026-05-15T00:00:00Z"
+            }
+          ],
+          "automaticDefaultRules": []
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let backup = try decoder.decode(ProfileBackupDocument.self, from: Data(json.utf8))
+
+        let result = try ProfileImporter.importProfiles(
+            from: backup,
+            into: ProfileStoreDocument(),
+            currentFingerprint: DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1"),
+            conflictStrategy: .keepBoth,
+            importAsNew: false
+        )
+
+        XCTAssertTrue(backup.displaySetupGroups.isEmpty)
+        XCTAssertEqual(result.profiles[0].notes, "Hidden note")
+        XCTAssertEqual(result.profiles[0].command, rawCommand)
+        XCTAssertTrue(result.profiles[0].isCommandEdited)
+        XCTAssertEqual(result.displaySetupGroups.map(\.fingerprint), [result.profiles[0].displaySetupFingerprint])
+    }
+
+    func testImportMergesExportedDisplaySetupGroups() throws {
+        let localFingerprint = DisplaySetupFingerprint(rawValue: "LOCAL|builtIn:true|count:1")
+        let importedFingerprint = DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1")
+        let localGroup = DisplaySetupGroup(id: Self.homeGroupID, fingerprint: localFingerprint, name: "Laptop")
+        let importedGroup = DisplaySetupGroup(id: Self.officeGroupID, fingerprint: importedFingerprint, name: "Office")
+        let importedProfile = DisplayProfile.fixture(id: Self.officeID, name: "Office", fingerprint: importedFingerprint.rawValue)
+        let backup = ProfileBackupDocument(
+            profiles: [importedProfile],
+            displaySetupGroups: [importedGroup]
+        )
+
+        let result = try ProfileImporter.importProfiles(
+            from: backup,
+            into: ProfileStoreDocument(displaySetupGroups: [localGroup]),
+            currentFingerprint: importedFingerprint,
+            conflictStrategy: .keepBoth,
+            importAsNew: false
+        )
+
+        XCTAssertEqual(result.displaySetupGroups, [localGroup, importedGroup])
     }
 
     func testExportPreviewShowsCountAndNamesForSelectedProfiles() {
@@ -143,6 +232,8 @@ final class ProfileImportExportTests: XCTestCase {
     private static let homeID = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
     private static let officeID = UUID(uuidString: "44444444-4444-4444-4444-444444444444")!
     private static let travelID = UUID(uuidString: "55555555-5555-5555-5555-555555555555")!
+    private static let homeGroupID = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
+    private static let officeGroupID = UUID(uuidString: "77777777-7777-7777-7777-777777777777")!
 }
 
 private extension DisplayProfile {

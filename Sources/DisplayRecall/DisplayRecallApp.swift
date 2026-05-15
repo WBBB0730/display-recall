@@ -1849,6 +1849,25 @@ struct ProfilesContentView: View {
                 .buttonStyle(.borderedProminent)
 
                 Spacer()
+
+                Menu {
+                    Button {
+                        Task {
+                            await importBackup()
+                        }
+                    } label: {
+                        Text(localization.status("Import Configurations...", chinese: "导入配置…"))
+                    }
+
+                    Button {
+                        export(selection: .all, suggestedName: "Display Recall Profiles")
+                    } label: {
+                        Text(localization.status("Export Configurations...", chinese: "导出配置…"))
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
             }
 
             if groupSections.isEmpty {
@@ -1893,6 +1912,11 @@ struct ProfilesContentView: View {
                                                             initialName: profile.name,
                                                             target: .profile(profile.id)
                                                         )
+                                                    }
+                                                    Button {
+                                                        export(selection: .single(profile.id), suggestedName: profile.name)
+                                                    } label: {
+                                                        Text(localization.status("Export Configuration...", chinese: "导出配置…"))
                                                     }
                                                     Button(role: .destructive) {
                                                         deleteProfile(profile)
