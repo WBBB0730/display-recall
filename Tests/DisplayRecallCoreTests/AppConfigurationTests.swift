@@ -48,5 +48,7 @@ final class AppConfigurationTests: XCTestCase {
         XCTAssertEqual(manifest.executableName, "DisplayRecall")
         XCTAssertEqual(manifest.bundleIdentifier, "dev.wbbb.display-recall")
         XCTAssertEqual(manifest.minimumSystemVersion, "13.0")
+        XCTAssertEqual(manifest.localizations, ["en", "zh-Hans"])
+        XCTAssertTrue(manifest.allowsMixedLocalizations)
     }
 }

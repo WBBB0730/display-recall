@@ -37,6 +37,10 @@ find "$BUILD_ROOT" -path "*/$CONFIGURATION/*.bundle" -type d -maxdepth 5 | while
   cp -R "$bundle" "$APP_DIR/Contents/Resources/"
 done
 
+find "$ROOT_DIR/Sources/DisplayRecall/Resources" -maxdepth 1 -name "*.lproj" -type d | while read -r localization; do
+  cp -R "$localization" "$APP_DIR/Contents/Resources/"
+done
+
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -44,6 +48,13 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 <dict>
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>zh-Hans</string>
+  </array>
+  <key>CFBundleAllowMixedLocalizations</key>
+  <true/>
   <key>CFBundleExecutable</key>
   <string>$EXECUTABLE_NAME</string>
   <key>CFBundleIdentifier</key>

@@ -82,7 +82,11 @@ final class LocalizationController: ObservableObject {
 
     @Published var preference = LanguagePreference.system
 
-    private init() {}
+    private init() {
+        if let settings = try? DisplayRecallStore.live().loadSettings().settings {
+            preference = settings.language
+        }
+    }
 
     var language: LanguagePreference {
         preference.resolved()
@@ -308,73 +312,6 @@ private struct MenuSaveProfilePanelView: View {
 
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-}
-
-private struct MoreMenuAction {
-    let title: String
-    let action: () -> Void
-}
-
-private struct MoreMenuButton: NSViewRepresentable {
-    let actions: [MoreMenuAction]
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(actions: actions)
-    }
-
-    func makeNSView(context: Context) -> NSButton {
-        let button = NSButton()
-        button.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: nil)
-        button.imagePosition = .imageOnly
-        button.isBordered = false
-        button.bezelStyle = .inline
-        button.setButtonType(.momentaryChange)
-        button.target = context.coordinator
-        button.action = #selector(Coordinator.showMenu(_:))
-        button.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            button.widthAnchor.constraint(equalToConstant: 28),
-            button.heightAnchor.constraint(equalToConstant: 28)
-        ])
-        return button
-    }
-
-    func updateNSView(_ button: NSButton, context: Context) {
-        context.coordinator.actions = actions
-    }
-
-    @MainActor
-    final class Coordinator: NSObject {
-        var actions: [MoreMenuAction]
-
-        init(actions: [MoreMenuAction]) {
-            self.actions = actions
-        }
-
-        @objc func showMenu(_ sender: NSButton) {
-            let menu = NSMenu()
-            menu.autoenablesItems = false
-            for (index, action) in actions.enumerated() {
-                let item = NSMenuItem(title: action.title, action: #selector(performAction(_:)), keyEquivalent: "")
-                item.target = self
-                item.tag = index
-                item.isEnabled = true
-                item.attributedTitle = NSAttributedString(
-                    string: action.title,
-                    attributes: [.font: NSFont.menuFont(ofSize: 0)]
-                )
-                menu.addItem(item)
-            }
-            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
-        }
-
-        @objc private func performAction(_ sender: NSMenuItem) {
-            guard actions.indices.contains(sender.tag) else {
-                return
-            }
-            actions[sender.tag].action()
-        }
     }
 }
 
@@ -1885,6 +1822,25 @@ private struct ImportPreviewSheet: View {
     }
 }
 
+private struct IconActionButton: View {
+    let systemImage: String
+    let title: String
+    var role: ButtonRole?
+    let action: () -> Void
+
+    var body: some View {
+        Button(role: role, action: action) {
+            Image(systemName: systemImage)
+                .imageScale(.medium)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .help(title)
+        .accessibilityLabel(title)
+    }
+}
+
 struct ProfilesContentView: View {
     @EnvironmentObject private var localization: LocalizationController
     @State private var document = ProfileStoreDocument()
@@ -1897,6 +1853,10 @@ struct ProfilesContentView: View {
     @State private var renameSheet: RenameSheetState?
     @State private var expandedGroupIDs = Set<UUID>()
     @State private var didInitializeExpandedGroups = false
+    @State private var hoveredGroupID: UUID?
+    @State private var hoveredProfileID: UUID?
+    @State private var isSelectingProfiles = false
+    @State private var exportSelectionIDs = Set<UUID>()
 
     private var groupSections: [ProfileGroupSection] {
         ProfileGroupingProjection.sections(
@@ -1923,16 +1883,39 @@ struct ProfilesContentView: View {
 
                 Spacer()
 
-                MoreMenuButton(actions: [
-                    MoreMenuAction(title: localization.status("Import Configurations...", chinese: "导入配置…")) {
-                        Task {
-                            await importBackup()
-                        }
-                    },
-                    MoreMenuAction(title: localization.status("Export Configurations...", chinese: "导出配置…")) {
-                        export(selection: .all, suggestedName: "Display Recall Profiles")
+                Button(localization.text(.importProfiles)) {
+                    Task {
+                        await importBackup()
                     }
-                ])
+                }
+                .controlSize(.large)
+
+                Button(localization.text(.export)) {
+                    export(selection: .all, suggestedName: "Display Recall Profiles")
+                }
+                .controlSize(.large)
+
+                if isSelectingProfiles {
+                    Button(localization.text(.exportSelected)) {
+                        export(
+                            selection: .multiple(Array(exportSelectionIDs)),
+                            suggestedName: "Display Recall Selected Profiles"
+                        )
+                    }
+                    .controlSize(.large)
+                    .disabled(exportSelectionIDs.isEmpty)
+
+                    Button(localization.status("Done", chinese: "完成")) {
+                        isSelectingProfiles = false
+                        exportSelectionIDs.removeAll()
+                    }
+                    .controlSize(.large)
+                } else {
+                    Button(localization.status("Select", chinese: "选择")) {
+                        isSelectingProfiles = true
+                    }
+                    .controlSize(.large)
+                }
             }
             .padding(.horizontal, 20)
 
@@ -1974,18 +1957,28 @@ struct ProfilesContentView: View {
                                     }
                                     .buttonStyle(.plain)
 
-                                    MoreMenuButton(actions: [
-                                        MoreMenuAction(title: localization.status("Rename...", chinese: "重命名…")) {
+                                    HStack(spacing: 0) {
+                                        IconActionButton(
+                                            systemImage: "square.and.pencil",
+                                            title: localization.status("Rename Display Setup", chinese: "重命名显示器组合")
+                                        ) {
                                             renameSheet = RenameSheetState(
                                                 title: localization.status("Rename Display Setup", chinese: "重命名显示器组合"),
                                                 initialName: displayName(for: section.group),
                                                 target: .displaySetupGroup(section.group.id)
                                             )
                                         }
-                                    ])
+                                    }
+                                    .frame(width: 28, height: 28)
+                                    .opacity(hoveredGroupID == section.group.id ? 1 : 0)
+                                    .allowsHitTesting(hoveredGroupID == section.group.id)
+                                    .animation(.easeInOut(duration: 0.12), value: hoveredGroupID)
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
+                                .onHover { isHovered in
+                                    hoveredGroupID = isHovered ? section.group.id : nil
+                                }
 
                                 if isExpanded(section.group) {
                                     VStack(alignment: .leading, spacing: 0) {
@@ -1996,16 +1989,27 @@ struct ProfilesContentView: View {
                                         } else {
                                             ForEach(Array(section.profiles.enumerated()), id: \.element.id) { index, profile in
                                                 VStack(alignment: .leading, spacing: 8) {
-                                                    HStack(spacing: 8) {
-                                                        Text(profile.name)
-                                                            .fontWeight(.medium)
-                                                            .lineLimit(1)
-                                                        Spacer()
-                                                        profileMoreMenu(profile)
+                                                HStack(spacing: 8) {
+                                                    if isSelectingProfiles {
+                                                        Toggle(
+                                                            localization.status("Select \(profile.name)", chinese: "选择 \(profile.name)"),
+                                                            isOn: exportSelectionBinding(for: profile)
+                                                        )
+                                                        .labelsHidden()
+                                                        .toggleStyle(.checkbox)
                                                     }
+                                                    Text(profile.name)
+                                                        .fontWeight(.medium)
+                                                        .lineLimit(1)
+                                                    Spacer()
+                                                    profileActions(profile)
+                                                        .opacity(hoveredProfileID == profile.id ? 1 : 0)
+                                                        .allowsHitTesting(hoveredProfileID == profile.id)
+                                                        .animation(.easeInOut(duration: 0.12), value: hoveredProfileID)
+                                                }
 
-                                                    HStack(spacing: 12) {
-                                                        Button(localization.text(.applyConfiguration)) {
+                                                HStack(spacing: 12) {
+                                                    Button(localization.text(.applyConfiguration)) {
                                                         applyProfileFromRow(profile)
                                                     }
                                                     .font(.body)
@@ -2020,11 +2024,14 @@ struct ProfilesContentView: View {
 
                                                         Spacer()
                                                     }
-                                                }
-                                                .padding(.vertical, 12)
+                                            }
+                                            .padding(.vertical, 12)
+                                            .onHover { isHovered in
+                                                hoveredProfileID = isHovered ? profile.id : nil
+                                            }
 
-                                                if index < section.profiles.count - 1 {
-                                                    Divider()
+                                            if index < section.profiles.count - 1 {
+                                                Divider()
                                                 }
                                             }
                                         }
@@ -2113,22 +2120,35 @@ struct ProfilesContentView: View {
         }
     }
 
-    private func profileMoreMenu(_ profile: DisplayProfile) -> some View {
-        MoreMenuButton(actions: [
-            MoreMenuAction(title: localization.status("Rename...", chinese: "重命名…")) {
+    private func profileActions(_ profile: DisplayProfile) -> some View {
+        HStack(spacing: 2) {
+            IconActionButton(
+                systemImage: "square.and.pencil",
+                title: localization.status("Rename Configuration", chinese: "重命名配置")
+            ) {
                 renameSheet = RenameSheetState(
                     title: localization.status("Rename Configuration", chinese: "重命名配置"),
                     initialName: profile.name,
                     target: .profile(profile.id)
                 )
-            },
-            MoreMenuAction(title: localization.status("Export Configuration...", chinese: "导出配置…")) {
+            }
+
+            IconActionButton(
+                systemImage: "square.and.arrow.up",
+                title: localization.status("Export Configuration", chinese: "导出配置")
+            ) {
                 export(selection: .single(profile.id), suggestedName: profile.name)
-            },
-            MoreMenuAction(title: localization.status("Delete...", chinese: "删除…")) {
+            }
+
+            IconActionButton(
+                systemImage: "trash",
+                title: localization.status("Delete Configuration", chinese: "删除配置"),
+                role: .destructive
+            ) {
                 deleteProfile(profile)
             }
-        ])
+        }
+        .frame(width: 88, height: 28, alignment: .trailing)
     }
 
     private func isExpanded(_ group: DisplaySetupGroup) -> Bool {
@@ -2168,6 +2188,19 @@ struct ProfilesContentView: View {
                     saveDocument()
                 } catch {
                     statusMessage = error.localizedDescription
+                }
+            }
+        )
+    }
+
+    private func exportSelectionBinding(for profile: DisplayProfile) -> Binding<Bool> {
+        Binding(
+            get: { exportSelectionIDs.contains(profile.id) },
+            set: { isSelected in
+                if isSelected {
+                    exportSelectionIDs.insert(profile.id)
+                } else {
+                    exportSelectionIDs.remove(profile.id)
                 }
             }
         )
@@ -2426,6 +2459,7 @@ struct ProfilesContentView: View {
             )
             document = result.profilesDocument
             selectedProfileIDs = Set(result.nextSelectedProfileID.map { [$0] } ?? [])
+            exportSelectionIDs.remove(profile.id)
             try store.save(result.profilesDocument)
             try store.save(SettingsStoreDocument(settings: result.settings))
             try ActivityLogRecorder(store: store).record(result.logEntry)
@@ -2460,7 +2494,6 @@ struct ProfilesContentView: View {
             let backup = ProfileExporter.export(document: document, settings: settings, selection: selection)
             try saveBackup(backup, suggestedName: suggestedName)
             recordActivity(ActivityLogEntry(type: .importExport, trigger: .manual, metadata: ["action": "export"]))
-            statusMessage = localization.status("Exported backup.", chinese: "已导出备份。")
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -2559,7 +2592,7 @@ struct ProfilesContentView: View {
 
     private func saveBackup(_ backup: ProfileBackupDocument, suggestedName: String) throws {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "\(suggestedName).display-recall.json"
+        panel.nameFieldStringValue = "\(suggestedName).json"
         panel.allowedContentTypes = [.json]
         guard panel.runModal() == .OK, let url = panel.url else {
             return
