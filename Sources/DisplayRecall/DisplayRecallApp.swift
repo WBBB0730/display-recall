@@ -1688,12 +1688,10 @@ private struct ExportProfilesSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 14) {
+            HStack(alignment: .center, spacing: 8) {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(.blue)
-                    .frame(width: 34, height: 34)
-                    .background(.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .imageScale(.medium)
+                    .foregroundStyle(.secondary)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(localization.text(.exportProfiles))
