@@ -22,40 +22,7 @@ final class MenuBarModelTests: XCTestCase {
         XCTAssertEqual(model.matchingProfiles.map(\.profile.id), [matching.id])
         XCTAssertEqual(model.otherProfiles.map(\.profile.id), [other.id])
         XCTAssertTrue(model.matchingProfiles[0].isAutomaticDefault)
-        XCTAssertTrue(model.matchingProfiles[0].isChecked)
         XCTAssertEqual(model.statusTitle, "Automation On")
-    }
-
-    func testMenuModelDoesNotCheckEveryMatchingProfile() {
-        let fingerprint = DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1")
-        let first = DisplayProfile.fixture(name: "Home", fingerprint: fingerprint)
-        let second = DisplayProfile.fixture(name: "Desk", fingerprint: fingerprint)
-        let document = ProfileStoreDocument(profiles: [first, second])
-
-        let model = MenuBarModel.build(
-            document: document,
-            currentFingerprint: fingerprint,
-            automationStatus: .enabled
-        )
-
-        XCTAssertEqual(model.matchingProfiles.map(\.profile.id), [first.id, second.id])
-        XCTAssertEqual(model.matchingProfiles.map(\.isChecked), [false, false])
-    }
-
-    func testMenuModelChecksExplicitProfileWhenMultipleProfilesMatch() {
-        let fingerprint = DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1")
-        let first = DisplayProfile.fixture(name: "Home", fingerprint: fingerprint)
-        let second = DisplayProfile.fixture(name: "Desk", fingerprint: fingerprint)
-        let document = ProfileStoreDocument(profiles: [first, second])
-
-        let model = MenuBarModel.build(
-            document: document,
-            currentFingerprint: fingerprint,
-            automationStatus: .enabled,
-            checkedProfileID: second.id
-        )
-
-        XCTAssertEqual(model.matchingProfiles.filter(\.isChecked).map(\.profile.id), [second.id])
     }
 
     func testMenuIconStatesCoverRequiredStatuses() {

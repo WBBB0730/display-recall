@@ -42,18 +42,15 @@ public struct MenuBarProfileItem: Equatable, Identifiable, Sendable {
     public let profile: DisplayProfile
     public let currentFingerprint: DisplaySetupFingerprint?
     public let isAutomaticDefault: Bool
-    public let isChecked: Bool
 
     public init(
         profile: DisplayProfile,
         currentFingerprint: DisplaySetupFingerprint?,
-        isAutomaticDefault: Bool,
-        isChecked: Bool = false
+        isAutomaticDefault: Bool
     ) {
         self.profile = profile
         self.currentFingerprint = currentFingerprint
         self.isAutomaticDefault = isAutomaticDefault
-        self.isChecked = isChecked
     }
 
     public var matchesCurrentDisplaySetup: Bool {
@@ -74,35 +71,15 @@ public struct MenuBarModel: Equatable, Sendable {
     public static func build(
         document: ProfileStoreDocument,
         currentFingerprint: DisplaySetupFingerprint?,
-        automationStatus: AutomationStatus,
-        checkedProfileID: UUID? = nil
+        automationStatus: AutomationStatus
     ) -> MenuBarModel {
-        let matchingProfiles = document.profiles.filter {
-            $0.displaySetupFingerprint == currentFingerprint
-        }
-        let matchingProfileIDs = Set(matchingProfiles.map(\.id))
-        let automaticDefaultID = document.automaticDefaultRules.first {
-            $0.displaySetupFingerprint == currentFingerprint && matchingProfileIDs.contains($0.profileId)
-        }?.profileId
-        let resolvedCheckedProfileID: UUID? = if let checkedProfileID,
-                                                 matchingProfileIDs.contains(checkedProfileID) {
-            checkedProfileID
-        } else if let automaticDefaultID {
-            automaticDefaultID
-        } else if matchingProfileIDs.count == 1 {
-            matchingProfiles[0].id
-        } else {
-            nil
-        }
-
         let items = document.profiles.map { profile in
             MenuBarProfileItem(
                 profile: profile,
                 currentFingerprint: currentFingerprint,
                 isAutomaticDefault: document.automaticDefaultRules.contains {
                     $0.profileId == profile.id && $0.displaySetupFingerprint == profile.displaySetupFingerprint
-                },
-                isChecked: profile.id == resolvedCheckedProfileID
+                }
             )
         }
 

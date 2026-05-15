@@ -196,38 +196,3 @@ public enum DisplayCommandParser {
         )
     }
 }
-
-public enum ProfileRecognizer {
-    public static func recognizeCurrentProfile(
-        in profiles: [DisplayProfile],
-        currentSetup: DisplaySetup
-    ) -> DisplayProfile? {
-        guard let currentCommand = currentSetup.currentCommand,
-              let currentLayout = try? DisplayCommandParser.parse(currentCommand) else {
-            return nil
-        }
-
-        return profiles.first { profile in
-            guard let profileLayout = try? DisplayCommandParser.parse(profile.command) else {
-                return false
-            }
-            return profileLayout.targets.normalizedForComparison == currentLayout.targets.normalizedForComparison
-        }
-    }
-}
-
-private extension Array where Element == ParsedDisplayTarget {
-    var normalizedForComparison: [ParsedDisplayTarget] {
-        map { target in
-            ParsedDisplayTarget(
-                displayIDs: target.displayIDs.sorted(),
-                resolution: target.resolution,
-                enabled: target.enabled,
-                scaling: target.scaling,
-                origin: target.origin,
-                degree: target.degree
-            )
-        }
-        .sorted { $0.displayIDs.joined(separator: "+") < $1.displayIDs.joined(separator: "+") }
-    }
-}

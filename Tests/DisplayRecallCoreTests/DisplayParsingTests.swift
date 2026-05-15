@@ -38,28 +38,6 @@ final class DisplayParsingTests: XCTestCase {
         XCTAssertEqual(layout.fingerprint.rawValue, "AAA+BBB+CCC|builtIn:false|count:3")
     }
 
-    func testBestEffortRecognitionCanMatchAndReturnUncertainWithoutError() throws {
-        let setup = try DisplayListParser.parse(Self.displayListOutput)
-        let matchingProfile = DisplayProfile(
-            name: "Home",
-            command: #"displayplacer "id:AAA res:1920x1080 enabled:true scaling:on origin:(0,0) degree:0" "id:BBB res:1080x1920 enabled:true scaling:on origin:(1920,0) degree:90""#,
-            displaySetupFingerprint: setup.fingerprint,
-            displaySummary: setup.summary
-        )
-        let unknownProfile = DisplayProfile(
-            name: "Other",
-            command: #"displayplacer "id:ZZZ res:800x600 enabled:true scaling:on origin:(0,0) degree:0""#,
-            displaySetupFingerprint: DisplaySetupFingerprint(rawValue: "ZZZ|builtIn:false|count:1")
-        )
-
-        XCTAssertEqual(
-            ProfileRecognizer.recognizeCurrentProfile(in: [unknownProfile, matchingProfile], currentSetup: setup)?.id,
-            matchingProfile.id
-        )
-
-        XCTAssertNil(ProfileRecognizer.recognizeCurrentProfile(in: [unknownProfile], currentSetup: setup))
-    }
-
     func testMalformedProfileCommandThrowsParserError() {
         XCTAssertThrowsError(try DisplayCommandParser.parse("not displayplacer")) { error in
             XCTAssertEqual(error as? DisplayParsingError, .missingDisplayplacerCommand)
