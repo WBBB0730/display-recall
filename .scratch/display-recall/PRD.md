@@ -108,7 +108,8 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 - Resolution, coordinates, scaling, rotation, refresh rate, and color depth are not part of the primary automatic matching key.
 - Display Recall does not expose current active profile detection. The menu does not use profile checkmarks or other long-lived active indicators to claim that the current layout exactly equals a saved profile.
 - Display setup fingerprints are used to group profiles for the current display set and to resolve automatic defaults. They are not exact layout-equality proofs.
-- Display change automation is event-triggered with a 5-second user-stoppable popover; the app rereads display state at the end of the countdown before applying.
+- Display change automation is event-triggered only when the current display setup fingerprint changes from the last known fingerprint, with a 5-second user-stoppable popover; rotation, resolution, position, or other same-fingerprint layout changes must not trigger automatic apply.
+- The app rereads display state at the end of the countdown before applying.
 - Login automation waits for a startup stability window before matching and showing the 5-second popover.
 - Automation can be paused for 1 hour, until tomorrow, or indefinitely. Manual applies still work while paused.
 - Manual profile applies do not update automatic defaults unless the user explicitly chooses to set the profile as the default for the current display setup.

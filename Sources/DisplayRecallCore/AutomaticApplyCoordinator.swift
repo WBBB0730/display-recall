@@ -57,10 +57,16 @@ public struct AutomaticApplyCoordinator: Sendable {
     @discardableResult
     public mutating func handleDisplayChange(
         document: ProfileStoreDocument,
+        previousFingerprint: DisplaySetupFingerprint? = nil,
         currentFingerprint: DisplaySetupFingerprint,
         automationStatus: AutomationStatus
     ) -> AutomaticApplyState {
-        schedule(
+        if previousFingerprint == currentFingerprint {
+            state = .idle
+            return state
+        }
+
+        return schedule(
             document: document,
             currentFingerprint: currentFingerprint,
             automationStatus: automationStatus,

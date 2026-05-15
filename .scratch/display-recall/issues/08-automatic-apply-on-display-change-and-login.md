@@ -14,6 +14,7 @@ Implement automatic profile matching and apply behavior for display setup change
 
 - [x] The app listens for display setup change events.
 - [x] Display changes schedule a 5-second pending automatic apply flow when automation is enabled.
+- [x] Display change events do not schedule automatic apply when the display setup fingerprint has not changed from the last known fingerprint.
 - [x] A popover shows the profile that will be applied and lets the user stop this apply.
 - [x] The user can immediately apply from the pending popover.
 - [x] The user can pause automation from the pending popover.

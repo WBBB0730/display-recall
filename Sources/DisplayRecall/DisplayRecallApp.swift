@@ -734,17 +734,27 @@ final class StatusBarController: NSObject {
     }
 
     private func scheduleAutomaticApply(trigger: AutomaticApplyTrigger) async {
-        pendingApplyTask?.cancel()
-        PendingApplyPanelController.shared.close()
+        let previousFingerprint = currentFingerprint
         await refreshCurrentSetup()
         loadProfiles()
-        guard let currentFingerprint else { return }
+        guard let currentFingerprint else {
+            pendingApplyTask?.cancel()
+            PendingApplyPanelController.shared.close()
+            return
+        }
+        if trigger == .displayChange && previousFingerprint == currentFingerprint {
+            return
+        }
+
+        pendingApplyTask?.cancel()
+        PendingApplyPanelController.shared.close()
 
         let state: AutomaticApplyState
         switch trigger {
         case .displayChange:
             state = automaticCoordinator.handleDisplayChange(
                 document: document,
+                previousFingerprint: previousFingerprint,
                 currentFingerprint: currentFingerprint,
                 automationStatus: automationStatus
             )
@@ -1104,16 +1114,26 @@ struct MenuBarContentView: View {
     }
 
     private func scheduleAutomaticApply(trigger: AutomaticApplyTrigger) async {
-        pendingApplyTask?.cancel()
-        PendingApplyPanelController.shared.close()
+        let previousFingerprint = currentFingerprint
         await refreshCurrentSetup()
         loadProfiles()
-        guard let currentFingerprint else { return }
+        guard let currentFingerprint else {
+            pendingApplyTask?.cancel()
+            PendingApplyPanelController.shared.close()
+            return
+        }
+        if trigger == .displayChange && previousFingerprint == currentFingerprint {
+            return
+        }
+
+        pendingApplyTask?.cancel()
+        PendingApplyPanelController.shared.close()
 
         switch trigger {
         case .displayChange:
             let state = automaticCoordinator.handleDisplayChange(
                 document: document,
+                previousFingerprint: previousFingerprint,
                 currentFingerprint: currentFingerprint,
                 automationStatus: automationStatus
             )
