@@ -3504,6 +3504,20 @@ struct AdjustableNumberField: NSViewRepresentable {
 @MainActor
 final class AdjustableNumberTextField: NSTextField {
     var onStep: ((Int) -> Void)?
+    private var outsideClickMonitor: Any?
+
+    override func becomeFirstResponder() -> Bool {
+        let result = super.becomeFirstResponder()
+        if result {
+            installOutsideClickMonitor()
+        }
+        return result
+    }
+
+    override func resignFirstResponder() -> Bool {
+        removeOutsideClickMonitor()
+        return super.resignFirstResponder()
+    }
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
@@ -3528,6 +3542,31 @@ final class AdjustableNumberTextField: NSTextField {
             onStep?(-1)
         } else {
             super.scrollWheel(with: event)
+        }
+    }
+
+    private func installOutsideClickMonitor() {
+        guard outsideClickMonitor == nil else {
+            return
+        }
+
+        outsideClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            guard let self, event.window === self.window else {
+                return event
+            }
+
+            let localPoint = self.convert(event.locationInWindow, from: nil)
+            if !self.bounds.contains(localPoint) {
+                self.window?.makeFirstResponder(nil)
+            }
+            return event
+        }
+    }
+
+    private func removeOutsideClickMonitor() {
+        if let outsideClickMonitor {
+            NSEvent.removeMonitor(outsideClickMonitor)
+            self.outsideClickMonitor = nil
         }
     }
 }
