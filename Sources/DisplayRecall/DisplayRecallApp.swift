@@ -2261,6 +2261,11 @@ private extension View {
     func importantButtonHover(isProminent: Bool = false) -> some View {
         modifier(ImportantButtonHoverModifier(isProminent: isProminent))
     }
+
+    func displayRecallSwitchControl() -> some View {
+        toggleStyle(.switch)
+            .controlSize(.small)
+    }
 }
 
 struct ProfilesContentView: View {
@@ -2433,8 +2438,7 @@ struct ProfilesContentView: View {
                                                             localization.text(.automaticApplyConfiguration),
                                                             isOn: automaticApplyBinding(for: profile)
                                                         )
-                                                        .toggleStyle(.switch)
-                                                        .controlSize(.small)
+                                                        .displayRecallSwitchControl()
 
                                                         Spacer()
                                                     }
@@ -3463,6 +3467,7 @@ struct SettingsView: View {
                         saveSettings()
                     }
                 ))
+                .displayRecallSwitchControl()
 
                 Picker(localization.text(.dockIconVisibility), selection: Binding(
                     get: { settings.dockIconVisibility },
@@ -3532,8 +3537,7 @@ struct SettingsView: View {
                         set: { settings.automaticApplyEnabled = $0; saveSettings() }
                     ))
                     .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.regular)
+                    .displayRecallSwitchControl()
                 }
                 .frame(minHeight: 28, alignment: .center)
             }
