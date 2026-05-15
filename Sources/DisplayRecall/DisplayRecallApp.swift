@@ -3494,12 +3494,9 @@ struct SettingsView: View {
                     }
                 }
 
-                HStack {
-                    Toggle(localization.text(.automaticApply), isOn: Binding(
-                        get: { settings.automaticApplyEnabled },
-                        set: { settings.automaticApplyEnabled = $0; saveSettings() }
-                    ))
-                    Spacer()
+                HStack(alignment: .center, spacing: 8) {
+                    Text(localization.text(.automaticApply))
+                    Spacer(minLength: 16)
                     TextField(
                         "",
                         value: Binding(
@@ -3516,7 +3513,26 @@ struct SettingsView: View {
                     .frame(width: 56)
                     Text(localization.status("seconds", chinese: "秒"))
                         .foregroundStyle(.secondary)
+                    Stepper(
+                        "",
+                        value: Binding(
+                            get: { settings.automaticApplyCountdownSeconds },
+                            set: { newValue in
+                                settings.automaticApplyCountdownSeconds = AutomaticApplyCountdownPolicy.normalized(newValue)
+                                saveSettings()
+                            }
+                        ),
+                        in: AutomaticApplyCountdownPolicy.allowedRange
+                    )
+                    .labelsHidden()
+                    .controlSize(.small)
+                    Toggle("", isOn: Binding(
+                        get: { settings.automaticApplyEnabled },
+                        set: { settings.automaticApplyEnabled = $0; saveSettings() }
+                    ))
+                    .labelsHidden()
                 }
+                .frame(minHeight: 28, alignment: .center)
             }
 
             if !statusMessage.isEmpty {
