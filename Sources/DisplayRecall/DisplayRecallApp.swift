@@ -1631,54 +1631,87 @@ private struct ExportProfilesSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(localization.text(.exportProfiles))
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Text(localization.text(.chooseExportScope))
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(.blue)
+                    .frame(width: 34, height: 34)
+                    .background(.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(localization.text(.exportProfiles))
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    Text(localization.text(.chooseExportScope))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
-            Toggle(localization.text(.allProfiles), isOn: allProfilesBinding)
-                .toggleStyle(.checkbox)
+            HStack(spacing: 12) {
+                Toggle(localization.text(.allProfiles), isOn: allProfilesBinding)
+                    .toggleStyle(.checkbox)
+                    .fontWeight(.medium)
+
+                Spacer()
+
+                Text(selectedCountText)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(.quaternary, in: Capsule())
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(.quinary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(sections, id: \.group.id) { section in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Toggle(displayName(for: section.group), isOn: groupBinding(for: section))
-                                .toggleStyle(.checkbox)
-                                .fontWeight(.medium)
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 10) {
+                                Toggle(displayName(for: section.group), isOn: groupBinding(for: section))
+                                    .toggleStyle(.checkbox)
+                                    .fontWeight(.semibold)
+                                    .lineLimit(1)
 
-                            VStack(alignment: .leading, spacing: 6) {
+                                Spacer()
+
+                                Text(groupCountText(for: section))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            VStack(alignment: .leading, spacing: 8) {
                                 ForEach(section.profiles) { profile in
                                     Toggle(profile.name, isOn: profileBinding(for: profile))
                                         .toggleStyle(.checkbox)
-                                        .padding(.leading, 22)
+                                        .lineLimit(1)
                                 }
                             }
+                            .padding(.leading, 24)
                         }
+                        .padding(12)
 
                         if section.group.id != sections.last?.group.id {
                             Divider()
+                                .padding(.leading, 12)
                         }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .background(.quinary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .frame(maxHeight: 280)
 
             let preview = selectedPreview
-            LabeledContent(localization.text(.profileCount), value: "\(preview?.profileCount ?? 0)")
-            if let preview, !preview.profileNames.isEmpty {
-                Text(preview.profileNames.joined(separator: ", "))
+            HStack {
+                Text(selectionSummaryText(count: preview?.profileCount ?? 0))
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                    .lineLimit(3)
-            }
-
-            HStack {
                 Spacer()
                 Button(localization.text(.cancel), action: onCancel)
                 Button(localization.text(.export)) {
@@ -1688,8 +1721,8 @@ private struct ExportProfilesSheet: View {
                 .disabled(selectedPreview == nil || selectedPreview?.profileCount == 0)
             }
         }
-        .padding(24)
-        .frame(width: 460)
+        .padding(20)
+        .frame(width: 480)
     }
 
     private var selectedPreview: ProfileExportPreview? {
@@ -1706,6 +1739,23 @@ private struct ExportProfilesSheet: View {
 
     private var allProfileIDs: Set<UUID> {
         Set(sections.flatMap(\.profiles).map(\.id))
+    }
+
+    private var selectedCountText: String {
+        selectionSummaryText(count: selectedProfileIDs.count)
+    }
+
+    private func selectionSummaryText(count: Int) -> String {
+        localization.status(
+            "\(count) selected",
+            chinese: "已选择 \(count) 个"
+        )
+    }
+
+    private func groupCountText(for section: ProfileGroupSection) -> String {
+        let profileIDs = Set(section.profiles.map(\.id))
+        let selectedCount = profileIDs.intersection(selectedProfileIDs).count
+        return "\(selectedCount)/\(profileIDs.count)"
     }
 
     private var allProfilesBinding: Binding<Bool> {

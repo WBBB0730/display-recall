@@ -37,27 +37,29 @@ Display Recall 的 Profile 列表已经被简化成按显示器组合分组的�
 14. As a Display Recall user, I want the export sheet to support selecting all profiles, all profiles in one display setup group, or individual profiles, so that partial backups do not require a separate page mode.
 15. As a Display Recall user, I want exported files to use a plain `.json` filename, so that the file type is obvious and conventional.
 16. As a Display Recall user, I want the native save dialog to use system/AppKit localization, so that Display Recall does not mix app-controlled copy with system-controlled panel labels.
-17. As a Display Recall user, I want Delete Configuration to be a small destructive icon action on the row, so that deleting is available but visually secondary.
-18. As a Display Recall user, I want Delete Configuration to keep its native confirmation, so that accidental deletion remains guarded.
-19. As a Display Recall user, I want icon buttons to have consistent size and alignment, so that the list feels designed rather than assembled.
-20. As a Display Recall user, I want icon buttons to use familiar symbols, so that I do not have to read explanatory text for common actions.
-21. As a Display Recall user, I want icon buttons to expose tooltips, so that unclear icons can be understood on hover.
-22. As a Display Recall user, I want the Apply Configuration button to stay text-based and prominent, so that the main action remains unmistakable.
-23. As a Display Recall user, I want Automatic Apply Configuration to remain visible, so that automation state can be understood without opening anything.
-24. As a Display Recall user, I want Import and Export text button labels to be localized, so that the top action bar matches the app language.
-25. As a Display Recall user, I want icon tooltips and confirmation copy localized, so that secondary actions still feel native.
-26. As a Display Recall user, I want hover actions not to shift row height or card width, so that the list does not jump while I move the pointer.
-27. As a Display Recall user, I want long profile names to continue truncating cleanly, so that action buttons remain aligned.
-28. As a Display Recall user, I want display setup group names to continue using display-layer localization for default names, so that this change does not regress naming.
-29. As a Display Recall user, I want Import and Export to keep the existing backup behavior, so that moving the buttons does not change data semantics.
-30. As a Display Recall user, I want single-profile Export to keep the same backup format as all-profile Export, so that exports remain predictable.
-31. As a Display Recall user, I want Delete to keep cleaning up automatic apply rules and shortcuts, so that splitting actions out of the menu does not break existing guarantees.
-32. As a Display Recall user, I want the page to remain visually quiet, so that utility workflows stay fast.
-33. As a maintainer, I want row action visibility modeled in a small UI component, so that hover/focus behavior is not duplicated across group and profile rows.
-34. As a maintainer, I want action definitions separated from visual placement, so that the same rename/export/delete behavior can be tested and reused.
-35. As a maintainer, I want this refactor to avoid storage changes, so that the UI iteration remains low risk.
-36. As a maintainer, I want tests to cover action semantics rather than hover implementation details, so that tests remain stable through visual refinements.
-37. As a maintainer, I want the implementation to avoid introducing a new advanced editor or menu architecture, so that the change stays focused.
+17. As a Display Recall user, I want the export sheet to feel like a polished macOS utility panel rather than a raw checkbox form, so that backup selection feels trustworthy.
+18. As a Display Recall user, I want the export sheet summary to show only how many profiles are selected, so that long profile names do not clutter the dialog.
+19. As a Display Recall user, I want Delete Configuration to be a small destructive icon action on the row, so that deleting is available but visually secondary.
+20. As a Display Recall user, I want Delete Configuration to keep its native confirmation, so that accidental deletion remains guarded.
+21. As a Display Recall user, I want icon buttons to have consistent size and alignment, so that the list feels designed rather than assembled.
+22. As a Display Recall user, I want icon buttons to use familiar symbols, so that I do not have to read explanatory text for common actions.
+23. As a Display Recall user, I want icon buttons to expose tooltips, so that unclear icons can be understood on hover.
+24. As a Display Recall user, I want the Apply Configuration button to stay text-based and prominent, so that the main action remains unmistakable.
+25. As a Display Recall user, I want Automatic Apply Configuration to remain visible, so that automation state can be understood without opening anything.
+26. As a Display Recall user, I want Import and Export text button labels to be localized, so that the top action bar matches the app language.
+27. As a Display Recall user, I want icon tooltips and confirmation copy localized, so that secondary actions still feel native.
+28. As a Display Recall user, I want hover actions not to shift row height or card width, so that the list does not jump while I move the pointer.
+29. As a Display Recall user, I want long profile names to continue truncating cleanly, so that action buttons remain aligned.
+30. As a Display Recall user, I want display setup group names to continue using display-layer localization for default names, so that this change does not regress naming.
+31. As a Display Recall user, I want Import and Export to keep the existing backup behavior, so that moving the buttons does not change data semantics.
+32. As a Display Recall user, I want single-profile Export to keep the same backup format as all-profile Export, so that exports remain predictable.
+33. As a Display Recall user, I want Delete to keep cleaning up automatic apply rules and shortcuts, so that splitting actions out of the menu does not break existing guarantees.
+34. As a Display Recall user, I want the page to remain visually quiet, so that utility workflows stay fast.
+35. As a maintainer, I want row action visibility modeled in a small UI component, so that hover/focus behavior is not duplicated across group and profile rows.
+36. As a maintainer, I want action definitions separated from visual placement, so that the same rename/export/delete behavior can be tested and reused.
+37. As a maintainer, I want this refactor to avoid storage changes, so that the UI iteration remains low risk.
+38. As a maintainer, I want tests to cover action semantics rather than hover implementation details, so that tests remain stable through visual refinements.
+39. As a maintainer, I want the implementation to avoid introducing a new advanced editor or menu architecture, so that the change stays focused.
 
 ## Implementation Decisions
 
@@ -70,6 +72,8 @@ Display Recall 的 Profile 列表已经被简化成按显示器组合分组的�
 - Open the list-level Export action into a focused selection sheet instead of adding a separate selection mode to the Profile list.
 - Default the export sheet to all profiles selected.
 - Support all-profile, display-setup-group, and individual profile selection inside the export sheet.
+- Style the export sheet as a compact, sectioned panel with a clear summary, bounded scrolling, and calm spacing.
+- Show only the selected profile count in the export sheet summary; do not list every selected profile name.
 - Keep selected-profile export mapped to the existing multiple-profile export selection.
 - Use a plain `.json` default filename for backup exports.
 - Do not override NSSavePanel title, confirmation button, message, or filename label; let the native save dialog follow system/AppKit localization while Display Recall only supplies the suggested `.json` filename and allowed content type.
