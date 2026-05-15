@@ -37,57 +37,60 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 15. As a user, I want Display Recall to keep running after I close the Profiles window, so that menu bar switching and automation continue.
 16. As a user, I want the Dock icon hidden after setup by default, so that the app behaves like a quiet menu bar utility.
 17. As a user, I want to show the Dock icon from Settings, so that I can choose a more visible app behavior.
-18. As a user, I want a Profiles window with a sidebar and detail view, so that I can manage profiles without a cluttered list.
-19. As a user, I want Settings to contain global behavior, so that profile management and app configuration stay separate.
-20. As a user, I want profile names to be suggested automatically from my display setup, so that saving a profile is quick.
-21. As a user, I want Save Current Layout to ask for a profile name before creating the profile, so that I do not accumulate unclear auto-generated names.
-22. As a user, I want display summaries to show enough detail to recognize a profile, so that I can tell which displays and layout it represents.
-23. As an advanced user, I want to edit the raw `displayplacer` command, so that I can adjust parameters the app does not expose as controls.
-24. As an advanced user, I want edited commands to be validated before saving, so that obvious broken profile data is caught early.
-25. As a user, I want profiles to bind to the current display setup through stable display IDs, so that automatic matching survives normal use.
-26. As a user, I want built-in display presence and enabled display count to be part of matching, so that open-lid and clamshell setups do not collide.
-27. As a user, I want unreliable display ID matching to be marked clearly, so that I understand why a profile may be risky.
-28. As a user, I want profile menu items to behave as one-shot apply commands rather than active-state indicators, so that I do not confuse a matching display setup with a verified current layout.
-29. As a user, I want Display Recall to separate display setup matching from exact layout equality, so that automation can stay useful without making false certainty claims.
-30. As a user, I want high-risk profile applies to ask for confirmation, so that I do not accidentally apply a dangerous layout.
-31. As a user, I want high-risk applies to show a 15-second keep/restore prompt, so that I can recover if a layout makes my screen hard to use.
-32. As a user, I want failed applies to offer manual restore, so that I can recover without the app attempting confusing automatic rollback.
-33. As a user, I want the app to keep the most recent restore point, so that the last display change can be undone.
-34. As a user, I want restoring a layout to support one undo, so that recovery itself is not a dead end.
-35. As a user, I want an Activity Log, so that I can understand why the app changed or did not change my display layout.
-36. As a user, I want Activity Log entries to include trigger, command, result, and errors, so that display problems can be diagnosed.
-37. As a user, I want logs to be structured and rendered in my selected language, so that changing language does not make history inconsistent.
-38. As a user, I want to copy diagnostic information, so that I can report issues with useful detail.
-39. As a user, I want to export all profiles and settings, so that I can back up my configuration.
-40. As a user, I want to export selected profiles, so that I can share or back up only specific layouts.
-41. As a user, I want to import one or more profiles, so that I can restore or share layouts.
-42. As a user, I want imports to preview conflicts and matching status, so that I do not accidentally overwrite useful profiles.
-43. As a user, I want imported profiles from another Mac to be allowed but marked as not matching, so that I can inspect or rebind them safely.
-44. As a user, I want same-name import conflicts to preserve both profiles by default, so that data is not lost.
-45. As a user, I want to rebind a profile to the current display setup, so that imported or changed setups can be made useful again.
-46. As a user, I want optional global shortcuts per profile, so that I can switch layouts quickly from the keyboard.
-47. As a user, I want shortcut permissions to be requested only when needed, so that first-run setup stays low friction.
-48. As a user, I want shortcut conflicts inside Display Recall to be prevented, so that two profiles do not use the same shortcut.
-49. As a user, I want common system shortcut conflicts to be warned about, so that I avoid obvious bad bindings.
-50. As a user, I want mirrored display profiles to save and apply correctly, so that projector and mirroring setups are supported.
-51. As a user, I want display-disabling profiles to be treated as high risk, so that I do not accidentally lose visible output.
-52. As a user, I want the primary display state to be preserved through the saved command, so that my menu bar and main screen return correctly.
-53. As a user, I want refresh rate, color depth, scaling, and rotation to be preserved without complex editors, so that profiles stay powerful but simple.
-54. As a user, I want the app to follow my system appearance, so that it looks native in light and dark mode.
-55. As a user, I want English and Simplified Chinese UI, so that the app is comfortable in both languages.
-56. As a user, I want language to follow the system by default, so that the app chooses the right language automatically.
-57. As a user, I want to override the app language manually, so that I can choose English or Simplified Chinese regardless of system language.
-58. As a user, I want profile auto-generated names to use the current UI language, so that new profiles fit the current locale.
-59. As a user, I want existing profile names not to change when language changes, so that names I edited remain stable.
-60. As a user, I want built-in updates, so that I can install new Display Recall releases with one click.
-61. As a user, I want updates to be user-confirmed rather than silent, so that the app does not restart unexpectedly.
-62. As a user, I want release builds signed and notarized, so that macOS security prompts do not undermine trust.
-63. As a user, I want to see third-party acknowledgements, so that bundled dependencies are transparent.
-64. As a contributor, I want the project to be open source under MIT, so that the code can be inspected and improved.
-65. As a maintainer, I want profile data to use schema versions and migrations, so that future data changes are safe.
-66. As a maintainer, I want app data stored per macOS user in Application Support, so that accounts remain isolated.
-67. As a maintainer, I want bundled backend versions fixed and checksummed during release builds, so that bug reports are reproducible.
-68. As a maintainer, I want Universal 2 app distribution and automatic backend architecture selection, so that Apple Silicon and Intel users receive one package.
+18. As a user, I want Automatic Dock icon behavior, so that the Dock icon appears while the main window is open and disappears when the app returns to menu-bar-only mode.
+19. As a user, I want Always Show and Always Hide Dock icon settings, so that I can choose my preferred macOS workflow.
+20. As a user, I do not want the Dock icon to flash during launch, so that Display Recall feels like a polished menu bar utility.
+21. As a user, I want a Profiles window with a sidebar and detail view, so that I can manage profiles without a cluttered list.
+22. As a user, I want Settings to contain global behavior, so that profile management and app configuration stay separate.
+23. As a user, I want profile names to be suggested automatically from my display setup, so that saving a profile is quick.
+24. As a user, I want Save Current Layout to ask for a profile name before creating the profile, so that I do not accumulate unclear auto-generated names.
+25. As a user, I want display summaries to show enough detail to recognize a profile, so that I can tell which displays and layout it represents.
+26. As an advanced user, I want to edit the raw `displayplacer` command, so that I can adjust parameters the app does not expose as controls.
+27. As an advanced user, I want edited commands to be validated before saving, so that obvious broken profile data is caught early.
+28. As a user, I want profiles to bind to the current display setup through stable display IDs, so that automatic matching survives normal use.
+29. As a user, I want built-in display presence and enabled display count to be part of matching, so that open-lid and clamshell setups do not collide.
+30. As a user, I want unreliable display ID matching to be marked clearly, so that I understand why a profile may be risky.
+31. As a user, I want profile menu items to behave as one-shot apply commands rather than active-state indicators, so that I do not confuse a matching display setup with a verified current layout.
+32. As a user, I want Display Recall to separate display setup matching from exact layout equality, so that automation can stay useful without making false certainty claims.
+33. As a user, I want high-risk profile applies to ask for confirmation, so that I do not accidentally apply a dangerous layout.
+34. As a user, I want high-risk applies to show a 15-second keep/restore prompt, so that I can recover if a layout makes my screen hard to use.
+35. As a user, I want failed applies to offer manual restore, so that I can recover without the app attempting confusing automatic rollback.
+36. As a user, I want the app to keep the most recent restore point, so that the last display change can be undone.
+37. As a user, I want restoring a layout to support one undo, so that recovery itself is not a dead end.
+38. As a user, I want an Activity Log, so that I can understand why the app changed or did not change my display layout.
+39. As a user, I want Activity Log entries to include trigger, command, result, and errors, so that display problems can be diagnosed.
+40. As a user, I want logs to be structured and rendered in my selected language, so that changing language does not make history inconsistent.
+41. As a user, I want to copy diagnostic information, so that I can report issues with useful detail.
+42. As a user, I want to export all profiles and settings, so that I can back up my configuration.
+43. As a user, I want to export selected profiles, so that I can share or back up only specific layouts.
+44. As a user, I want to import one or more profiles, so that I can restore or share layouts.
+45. As a user, I want imports to preview conflicts and matching status, so that I do not accidentally overwrite useful profiles.
+46. As a user, I want imported profiles from another Mac to be allowed but marked as not matching, so that I can inspect or rebind them safely.
+47. As a user, I want same-name import conflicts to preserve both profiles by default, so that data is not lost.
+48. As a user, I want to rebind a profile to the current display setup, so that imported or changed setups can be made useful again.
+49. As a user, I want optional global shortcuts per profile, so that I can switch layouts quickly from the keyboard.
+50. As a user, I want shortcut permissions to be requested only when needed, so that first-run setup stays low friction.
+51. As a user, I want shortcut conflicts inside Display Recall to be prevented, so that two profiles do not use the same shortcut.
+52. As a user, I want common system shortcut conflicts to be warned about, so that I avoid obvious bad bindings.
+53. As a user, I want mirrored display profiles to save and apply correctly, so that projector and mirroring setups are supported.
+54. As a user, I want display-disabling profiles to be treated as high risk, so that I do not accidentally lose visible output.
+55. As a user, I want the primary display state to be preserved through the saved command, so that my menu bar and main screen return correctly.
+56. As a user, I want refresh rate, color depth, scaling, and rotation to be preserved without complex editors, so that profiles stay powerful but simple.
+57. As a user, I want the app to follow my system appearance, so that it looks native in light and dark mode.
+58. As a user, I want English and Simplified Chinese UI, so that the app is comfortable in both languages.
+59. As a user, I want language to follow the system by default, so that the app chooses the right language automatically.
+60. As a user, I want to override the app language manually, so that I can choose English or Simplified Chinese regardless of system language.
+61. As a user, I want profile auto-generated names to use the current UI language, so that new profiles fit the current locale.
+62. As a user, I want existing profile names not to change when language changes, so that names I edited remain stable.
+63. As a user, I want built-in updates, so that I can install new Display Recall releases with one click.
+64. As a user, I want updates to be user-confirmed rather than silent, so that the app does not restart unexpectedly.
+65. As a user, I want release builds signed and notarized, so that macOS security prompts do not undermine trust.
+66. As a user, I want to see third-party acknowledgements, so that bundled dependencies are transparent.
+67. As a contributor, I want the project to be open source under MIT, so that the code can be inspected and improved.
+68. As a maintainer, I want profile data to use schema versions and migrations, so that future data changes are safe.
+69. As a maintainer, I want app data stored per macOS user in Application Support, so that accounts remain isolated.
+70. As a maintainer, I want bundled backend versions fixed and checksummed during release builds, so that bug reports are reproducible.
+71. As a maintainer, I want Universal 2 app distribution and automatic backend architecture selection, so that Apple Silicon and Intel users receive one package.
 
 ## Implementation Decisions
 
@@ -96,7 +99,11 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 - The app is a native Swift/SwiftUI macOS app targeting macOS 13+.
 - The app is a background menu bar utility by default, with `MenuBarExtra` using a popover/window style for richer controls.
 - The app remains running after Profiles windows close; Quit is an explicit menu bar action.
-- Dock icon is visible during setup and hidden by default after setup completes, with a Settings option to show it.
+- Display Recall launches as a UI element so the Dock icon does not flash during startup.
+- Dock icon visibility has three modes: Automatic, Always Show, and Always Hide.
+- Automatic is the default mode: the Dock icon is hidden while only the menu bar utility is running, shown while the main window is open, and hidden again after the main window closes.
+- Always Show keeps the Dock icon visible after launch.
+- Always Hide keeps the Dock icon hidden even while the main window is open.
 - Main daily surface is the menu bar popover. Full management lives in a Profiles window. Global configuration lives in Settings.
 - Profiles window uses sidebar + detail layout.
 - Profile raw `displayplacer` command is authoritative. Parsed command data is advisory for validation, risk classification, diagnostics, and UI, and must not be required for applying a profile.
@@ -153,7 +160,8 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 - Risk tests should cover imported profiles, edited commands, non-matching setups, missing IDs, disabled displays, mirrored parsing uncertainty, and normal matching applies.
 - Restore tests should cover apply, failed apply, manual restore, and one undo after restore.
 - Import/export tests should cover all profiles, selected profiles, conflict strategies, unmatched profiles, UUID handling, schema versions, and future-version rejection.
-- Settings/storage tests should cover per-user data paths, backend selection, language selection, pause settings, login item preference, and Dock icon preference.
+- Settings/storage tests should cover per-user data paths, backend selection, language selection, pause settings, login item preference, and Dock icon visibility preference.
+- Dock icon tests should verify policy resolution for Automatic, Always Show, and Always Hide across main-window open and closed states, and packaged app metadata should verify UI-element launch behavior.
 - Localization tests should verify English and Simplified Chinese coverage for user-visible strings and that saved profile names do not change when language changes.
 - Release/build verification should check bundled backend architecture selection, backend checksum metadata, third-party notices, Sparkle metadata, signing, and notarization in release workflows.
 - UI smoke tests should verify setup, first profile creation, menu bar apply, Profiles management, Settings, Activity Log, import/export, and high-risk keep/restore flows.
