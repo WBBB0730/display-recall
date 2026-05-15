@@ -1976,12 +1976,9 @@ private struct IconActionButton: View {
         Button(role: role, action: action) {
             Image(systemName: systemImage)
                 .imageScale(.medium)
+                .foregroundStyle(iconColor)
                 .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
-                .background(
-                    hoverColor,
-                    in: RoundedRectangle(cornerRadius: 5, style: .continuous)
-                )
         }
         .buttonStyle(.borderless)
         .help(title)
@@ -1990,9 +1987,9 @@ private struct IconActionButton: View {
         .animation(.easeInOut(duration: 0.12), value: isHovered)
     }
 
-    private var hoverColor: Color {
-        guard isHovered else { return .clear }
-        return role == .destructive ? Color.red.opacity(0.16) : Color.primary.opacity(0.12)
+    private var iconColor: Color {
+        guard isHovered else { return .secondary }
+        return role == .destructive ? .red : .primary
     }
 }
 
