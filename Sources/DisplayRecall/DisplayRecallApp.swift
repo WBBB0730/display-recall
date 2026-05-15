@@ -334,6 +334,7 @@ final class MainWindowController {
                 defer: false
             )
             window.title = AppWindow.main.title
+            window.titleVisibility = .hidden
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(
                 rootView: MainWindowView()
@@ -1292,6 +1293,7 @@ struct MainWindowView: View {
                 selectedContent
                     .navigationTitle(localizedTitle(for: router.selectedSection))
             }
+            .toolbar(.hidden, for: .windowToolbar)
         } else {
             SetupView(setupCompleted: $setupCompleted)
         }
