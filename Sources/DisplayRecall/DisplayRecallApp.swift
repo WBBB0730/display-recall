@@ -2706,23 +2706,19 @@ struct ProfilesContentView: View {
         }
         let groupName = displayName(for: group)
         let alert = NSAlert()
+        alert.messageText = localization.status(
+            "Delete “\(groupName)”?",
+            chinese: "删除“\(groupName)”？"
+        )
         if profilesInGroup.isEmpty {
-            alert.messageText = localization.status(
-                "Delete “\(groupName)”?",
-                chinese: "删除“\(groupName)”？"
-            )
             alert.informativeText = localization.status(
                 "This display setup group will be removed.",
                 chinese: "这个显示器组合会被移除。"
             )
         } else {
-            alert.messageText = localization.status(
-                "Delete “\(groupName)” and \(profilesInGroup.count) configurations?",
-                chinese: "删除“\(groupName)”和其中 \(profilesInGroup.count) 个配置？"
-            )
             alert.informativeText = localization.status(
-                "This cannot be undone. Automatic apply settings and shortcuts for these configurations will also be removed.",
-                chinese: "此操作无法撤销。这些配置的自动应用设置和快捷键也会移除。"
+                "This will also delete \(profilesInGroup.count) configurations. Automatic apply settings and shortcuts for these configurations will be removed.",
+                chinese: "这也会删除其中 \(profilesInGroup.count) 个配置。这些配置的自动应用设置和快捷键也会移除。"
             )
         }
         alert.addButton(withTitle: localization.status("Delete", chinese: "删除"))
