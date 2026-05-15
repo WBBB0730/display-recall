@@ -1281,19 +1281,22 @@ struct MainWindowView: View {
 
     var body: some View {
         if setupCompleted {
-            NavigationSplitView {
+            HStack(spacing: 0) {
                 List(selection: $router.selectedSection) {
                     ForEach(MainWindowSection.allCases) { section in
                         Label(localizedTitle(for: section), systemImage: section.systemImage)
                             .tag(section)
                     }
                 }
-                .navigationTitle(AppConfiguration.displayName)
-            } detail: {
+                .listStyle(.sidebar)
+                .frame(width: 172)
+
+                Divider()
+
                 selectedContent
-                    .navigationTitle(localizedTitle(for: router.selectedSection))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .toolbar(.hidden, for: .windowToolbar)
+            .frame(minWidth: 640, minHeight: 480)
         } else {
             SetupView(setupCompleted: $setupCompleted)
         }
