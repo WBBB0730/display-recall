@@ -183,7 +183,7 @@ final class PendingApplyPanelController {
         if panel == nil {
             let panel = NSPanel(
                 contentRect: NSRect(x: 0, y: 0, width: 312, height: 118),
-                styleMask: [.titled, .nonactivatingPanel],
+                styleMask: [.titled],
                 backing: .buffered,
                 defer: false
             )
@@ -197,7 +197,8 @@ final class PendingApplyPanelController {
 
         panel?.contentView = NSHostingView(rootView: rootView)
         positionPanel()
-        panel?.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
+        panel?.makeKeyAndOrderFront(nil)
     }
 
     func close() {
