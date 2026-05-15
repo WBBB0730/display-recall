@@ -604,13 +604,14 @@ final class StatusBarController: NSObject {
 
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 148),
-            styleMask: [.titled],
+            styleMask: [.titled, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         panel.title = ""
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
+        panel.isMovableByWindowBackground = true
         panel.isReleasedWhenClosed = false
         panel.center()
         panel.contentView = NSHostingView(
