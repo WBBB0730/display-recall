@@ -1970,16 +1970,49 @@ private struct IconActionButton: View {
     var role: ButtonRole?
     let action: () -> Void
 
+    @State private var isHovered = false
+
     var body: some View {
         Button(role: role, action: action) {
             Image(systemName: systemImage)
                 .imageScale(.medium)
                 .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
+                .background(
+                    hoverColor,
+                    in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+                )
         }
         .buttonStyle(.borderless)
         .help(title)
         .accessibilityLabel(title)
+        .onHover { isHovered = $0 }
+        .animation(.easeInOut(duration: 0.12), value: isHovered)
+    }
+
+    private var hoverColor: Color {
+        guard isHovered else { return .clear }
+        return role == .destructive ? Color.red.opacity(0.16) : Color.primary.opacity(0.12)
+    }
+}
+
+private struct ImportantButtonHoverModifier: ViewModifier {
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                isHovered ? Color.primary.opacity(0.08) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+            )
+            .onHover { isHovered = $0 }
+            .animation(.easeInOut(duration: 0.12), value: isHovered)
+    }
+}
+
+private extension View {
+    func importantButtonHover() -> some View {
+        modifier(ImportantButtonHoverModifier())
     }
 }
 
@@ -1996,6 +2029,7 @@ struct ProfilesContentView: View {
     @State private var expandedGroupIDs = Set<UUID>()
     @State private var didInitializeExpandedGroups = false
     @State private var hoveredGroupID: UUID?
+    @State private var hoveredGroupActionID: UUID?
     @State private var hoveredProfileID: UUID?
 
     private var groupSections: [ProfileGroupSection] {
@@ -2020,6 +2054,7 @@ struct ProfilesContentView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .importantButtonHover()
 
                 Spacer()
 
@@ -2028,12 +2063,16 @@ struct ProfilesContentView: View {
                         await importBackup()
                     }
                 }
+                .buttonStyle(.bordered)
                 .controlSize(.large)
+                .importantButtonHover()
 
                 Button(localization.text(.export)) {
                     presentExportSheet()
                 }
+                .buttonStyle(.bordered)
                 .controlSize(.large)
+                .importantButtonHover()
             }
             .padding(.horizontal, 20)
 
@@ -2083,12 +2122,15 @@ struct ProfilesContentView: View {
                                     .frame(width: 28, height: 28)
                                     .opacity(hoveredGroupID == section.group.id ? 1 : 0)
                                     .allowsHitTesting(hoveredGroupID == section.group.id)
+                                    .onHover { isHovered in
+                                        hoveredGroupActionID = isHovered ? section.group.id : nil
+                                    }
                                     .animation(.easeInOut(duration: 0.12), value: hoveredGroupID)
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(
-                                    hoveredGroupID == section.group.id
+                                    hoveredGroupID == section.group.id && hoveredGroupActionID != section.group.id
                                         ? Color.primary.opacity(0.08)
                                         : Color.clear,
                                     in: RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -2129,6 +2171,7 @@ struct ProfilesContentView: View {
                                                     .font(.body)
                                                     .buttonStyle(.borderedProminent)
                                                     .controlSize(.large)
+                                                    .importantButtonHover()
 
                                                         Toggle(
                                                             localization.text(.automaticApplyConfiguration),
