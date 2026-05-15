@@ -515,12 +515,20 @@ final class StatusBarController: NSObject {
             guard case let .ready(layout) = await service.verifyBackendAndReadCurrentLayout() else {
                 return
             }
+            let suggestedName = LocalizationController.shared.defaultProfileName(
+                existingNames: document.profiles.map(\.name)
+            )
+            guard let profileName = requestProfileName(
+                suggestedName: suggestedName,
+                displaySummary: layout.displaySummary
+            ) else {
+                return
+            }
+
             var manager = ProfileManager(document: document)
             document = try manager.saveCurrentLayout(
                 layout,
-                name: LocalizationController.shared.defaultProfileName(
-                    existingNames: document.profiles.map(\.name)
-                )
+                name: profileName
             )
             try DisplayRecallStore.live().save(document)
             currentFingerprint = layout.displaySetupFingerprint
@@ -530,6 +538,29 @@ final class StatusBarController: NSObject {
                 metadata: ["error": error.localizedDescription]
             ))
         }
+    }
+
+    private func requestProfileName(suggestedName: String, displaySummary: String) -> String? {
+        let localization = LocalizationController.shared
+        let alert = NSAlert()
+        alert.messageText = localization.text(.createProfile)
+        alert.informativeText = displaySummary
+        alert.addButton(withTitle: localization.text(.saveCurrentLayout))
+        alert.addButton(withTitle: localization.text(.cancel))
+
+        let textField = NSTextField(string: suggestedName)
+        textField.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
+        alert.accessoryView = textField
+
+        NSApp.activate(ignoringOtherApps: true)
+        textField.selectText(nil)
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return nil
+        }
+
+        let name = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
     }
 
     private func apply(_ profile: DisplayProfile) async {
