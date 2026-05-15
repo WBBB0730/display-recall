@@ -3464,6 +3464,7 @@ struct AdjustableNumberField: NSViewRepresentable {
         textField.bezelStyle = .roundedBezel
         textField.onStep = { delta in
             context.coordinator.step(delta: delta)
+            textField.selectText(nil)
         }
         return textField
     }
@@ -3527,6 +3528,9 @@ final class AdjustableNumberTextField: NSTextField {
         let result = super.becomeFirstResponder()
         if result {
             installOutsideClickMonitor()
+            DispatchQueue.main.async { [weak self] in
+                self?.selectText(nil)
+            }
         }
         return result
     }
