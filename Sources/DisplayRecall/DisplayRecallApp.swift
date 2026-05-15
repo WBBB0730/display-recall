@@ -2205,9 +2205,10 @@ private struct ShortcutCaptureSheet: View {
             .frame(height: 30)
 
             if let conflict = conflictName(shortcut), let shortcut {
+                let shortcutTitle = spacedShortcutDisplay(shortcut.keyEquivalent)
                 Text(localization.status(
-                    "\(shortcut.keyEquivalent) is already used by “\(conflict)”",
-                    chinese: "\(shortcut.keyEquivalent) 已被“\(conflict)”使用"
+                    "\(shortcutTitle) is already used by “\(conflict)”",
+                    chinese: "\(shortcutTitle) 已被“\(conflict)”使用"
                 ))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -2260,11 +2261,15 @@ private struct ShortcutRecorderField: NSViewRepresentable {
 
     func updateNSView(_ nsView: ShortcutRecorderTextField, context: Context) {
         nsView.placeholderString = placeholder
-        nsView.stringValue = shortcut?.keyEquivalent ?? ""
+        nsView.stringValue = shortcut.map { spacedShortcutDisplay($0.keyEquivalent) } ?? ""
         DispatchQueue.main.async {
             nsView.window?.makeFirstResponder(nsView)
         }
     }
+}
+
+private func spacedShortcutDisplay(_ shortcut: String) -> String {
+    shortcut.map(String.init).joined(separator: " ")
 }
 
 @MainActor
@@ -3147,7 +3152,7 @@ struct ProfilesContentView: View {
         guard let shortcut = shortcutBinding(for: profile)?.keyEquivalent else {
             return localization.status("Set Shortcut", chinese: "设置快捷键")
         }
-        return shortcut.map(String.init).joined(separator: " ")
+        return spacedShortcutDisplay(shortcut)
     }
 
     private func shortcutConflictName(
