@@ -2787,6 +2787,7 @@ struct ProfilesContentView: View {
     @State private var hoveredGroupID: UUID?
     @State private var hoveredGroupActionID: UUID?
     @State private var hoveredProfileID: UUID?
+    @State private var hoveredShortcutProfileID: UUID?
 
     private var groupSections: [ProfileGroupSection] {
         ProfileGroupingProjection.sections(
@@ -2955,9 +2956,9 @@ struct ProfilesContentView: View {
                                                         .font(.body)
                                                         .buttonStyle(.borderless)
                                                         .foregroundStyle(
-                                                            shortcutBinding(for: profile)?.shortcut == nil
-                                                                ? .secondary
-                                                                : .primary
+                                                            hoveredShortcutProfileID == profile.id
+                                                                ? .primary
+                                                                : .secondary
                                                         )
                                                         .opacity(
                                                             shortcutBinding(for: profile)?.shortcut == nil
@@ -2969,7 +2970,13 @@ struct ProfilesContentView: View {
                                                             shortcutBinding(for: profile)?.shortcut != nil
                                                                 || hoveredProfileID == profile.id
                                                         )
+                                                        .onHover { isHovered in
+                                                            withAnimation(profileHoverAnimation) {
+                                                                hoveredShortcutProfileID = isHovered ? profile.id : nil
+                                                            }
+                                                        }
                                                         .animation(profileHoverAnimation, value: hoveredProfileID)
+                                                        .animation(profileHoverAnimation, value: hoveredShortcutProfileID)
                                                     }
                                             }
                                             .padding(.vertical, 12)
