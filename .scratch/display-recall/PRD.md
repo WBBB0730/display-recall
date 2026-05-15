@@ -12,9 +12,9 @@ Users need a native macOS menu bar app that remembers display layouts, switches 
 
 Build `Display Recall`, a native Swift/SwiftUI macOS menu bar companion for `displayplacer`.
 
-Display Recall stores display layouts as profiles. Each profile treats the original `displayplacer` command as authoritative data, with parsed display summaries used only for recognition, diagnostics, and UI. The app ships with a bundled `displayplacer` backend by default, while still allowing advanced users to choose a Homebrew/system/custom backend path.
+Display Recall stores display layouts as profiles. Each profile treats the original `displayplacer` command as authoritative data, with parsed display summaries used only for validation, diagnostics, and UI. The app does not claim to prove that the current layout is exactly equal to any saved profile. The app ships with a bundled `displayplacer` backend by default, while still allowing advanced users to choose a Homebrew/system/custom backend path.
 
-The main product surface is a menu bar app with a Profiles window and Settings window. Users can save the current layout, switch profiles from the menu bar, define automatic defaults per display setup, pause automation, import/export profiles, and inspect a lightweight Activity Log. When displays change or the app launches at login, Display Recall waits for the display setup to stabilize, shows a 5-second popover that lets the user stop the pending automatic apply, then applies the matching default profile if one exists.
+The main product surface is a menu bar app with a Profiles window and Settings window. Users can save the current layout, apply profiles from the menu bar as one-shot commands, define automatic defaults per display setup, pause automation, import/export profiles, and inspect a lightweight Activity Log. When displays change or the app launches at login, Display Recall waits for the display setup to stabilize, shows a 5-second popover that lets the user stop the pending automatic apply, then applies the matching default profile if one exists.
 
 High-risk operations require confirmation and use a 15-second keep/restore safety flow. The app is distributed outside the Mac App Store through signed and notarized GitHub Releases, supports Sparkle updates, and ships with English and Simplified Chinese localization.
 
@@ -25,7 +25,7 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 3. As a Mac user, I want the app to verify its display backend during setup, so that I know it can safely read and apply layouts.
 4. As a first-time user, I want setup to guide me into creating my first profile, so that I know what to do after installation.
 5. As a first-time user, I want the first profile to default to automatic use for the current display setup, so that my current layout is remembered with one clear step.
-6. As a menu bar user, I want to switch matching profiles from the menu bar, so that I can restore layouts without opening a full window.
+6. As a menu bar user, I want to apply matching profiles from the menu bar, so that I can restore layouts without opening a full window.
 7. As a menu bar user, I want non-matching profiles to be separated from matching profiles, so that quick switching stays focused.
 8. As a user with several layouts for the same displays, I want one automatic default profile per display setup, so that automation does not guess incorrectly.
 9. As a user, I want hand-applied profiles not to change automation defaults, so that temporary choices do not become permanent rules.
@@ -47,8 +47,8 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 25. As a user, I want profiles to bind to the current display setup through stable display IDs, so that automatic matching survives normal use.
 26. As a user, I want built-in display presence and enabled display count to be part of matching, so that open-lid and clamshell setups do not collide.
 27. As a user, I want unreliable display ID matching to be marked clearly, so that I understand why a profile may be risky.
-28. As a user, I want the current active profile to be recognized on a best-effort basis, so that the menu bar can show what layout appears to be active.
-29. As a user, I want best-effort recognition not to treat uncertainty as an error, so that normal display quirks do not create false alarms.
+28. As a user, I want profile menu items to behave as one-shot apply commands rather than active-state indicators, so that I do not confuse a matching display setup with a verified current layout.
+29. As a user, I want Display Recall to separate display setup matching from exact layout equality, so that automation can stay useful without making false certainty claims.
 30. As a user, I want high-risk profile applies to ask for confirmation, so that I do not accidentally apply a dangerous layout.
 31. As a user, I want high-risk applies to show a 15-second keep/restore prompt, so that I can recover if a layout makes my screen hard to use.
 32. As a user, I want failed applies to offer manual restore, so that I can recover without the app attempting confusing automatic rollback.
@@ -99,13 +99,14 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 - Dock icon is visible during setup and hidden by default after setup completes, with a Settings option to show it.
 - Main daily surface is the menu bar popover. Full management lives in a Profiles window. Global configuration lives in Settings.
 - Profiles window uses sidebar + detail layout.
-- Profile raw `displayplacer` command is authoritative. Parsed command data is advisory and must not be required for applying a profile.
+- Profile raw `displayplacer` command is authoritative. Parsed command data is advisory for validation, risk classification, diagnostics, and UI, and must not be required for applying a profile.
 - Profile data includes stable UUID, name, optional notes, raw command, display setup fingerprint, display summary, schema version, backend version, creation/update timestamps, and app version metadata.
 - Automatic default rules use `displaySetFingerprint -> profile UUID`.
 - Display setup fingerprint prioritizes persistent display IDs, built-in display presence, and enabled display count.
 - Serial/contextual IDs, display names, and short IDs are auxiliary data for display, diagnostics, or degraded matching.
 - Resolution, coordinates, scaling, rotation, refresh rate, and color depth are not part of the primary automatic matching key.
-- Current active profile detection is best-effort and compares key parsed parameters when available.
+- Display Recall does not expose current active profile detection. The menu does not use profile checkmarks or other long-lived active indicators to claim that the current layout exactly equals a saved profile.
+- Display setup fingerprints are used to group profiles for the current display set and to resolve automatic defaults. They are not exact layout-equality proofs.
 - Display change automation is event-triggered with a 5-second user-stoppable popover; the app rereads display state at the end of the countdown before applying.
 - Login automation waits for a startup stability window before matching and showing the 5-second popover.
 - Automation can be paused for 1 hour, until tomorrow, or indefinitely. Manual applies still work while paused.

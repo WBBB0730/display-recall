@@ -24,12 +24,15 @@ Manual core-flow verification on 2026-05-14 showed that the real bundled backend
 
 Make Apply feel and behave like a core, inspectable operation rather than a silent background action.
 
+Apply is intentionally a one-shot command. Success and failure feedback should be immediate and inspectable, but it should not become a persistent "current profile" checkmark or exact-layout recognition claim.
+
 ## Acceptance criteria
 
 - [ ] Clicking Apply from the main window shows an immediate in-progress state on that profile.
 - [ ] Apply success shows a visible success state with timestamp or short status text.
 - [ ] Apply failure shows a visible error state with exit code and stderr, and links to the exact Activity Log entry.
 - [ ] Menu-bar Apply gives visible success/failure feedback, not only an invisible activity-log write.
+- [ ] Menu-bar Apply feedback does not persist as a profile checkmark or imply exact current-layout equality.
 - [ ] Activity Log records the parsed argument count and backend path for each manual apply.
 - [ ] There is a real e2e/dev verification command or script that applies the current saved profile using the packaged app backend and reports exit code, stdout, and stderr.
 - [ ] The app can expose/open the main window reliably for verification even when running as a menu-bar app.

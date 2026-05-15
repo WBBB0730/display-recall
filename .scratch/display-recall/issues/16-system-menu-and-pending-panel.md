@@ -14,7 +14,8 @@ Convert the normal menu bar experience into a true system-style menu that contai
 
 - [x] Normal menu bar UI uses a system menu style instead of a custom popover-style panel.
 - [x] The menu contains current matching profiles, an Other Profiles submenu, Save Current Layout, Open Display Recall, Settings, Automatic Apply toggle, Check for Updates, and Quit.
-- [x] Menu profile items apply profiles directly and show automatic-default/high-risk state in a compact menu-appropriate way.
+- [x] Menu profile items apply profiles directly as one-shot commands without checkmarks or active-layout indicators.
+- [x] The Automatic Apply toggle may use a checkmark because it represents a setting, not current layout recognition.
 - [x] The menu does not contain Activity Log, import/export, acknowledgements, or long explanatory content.
 - [x] Automatic-apply pending state opens a separate non-blocking floating panel proactively without requiring a menu click.
 - [x] Pending panel shows trigger, profile name, countdown, Apply Now, and Stop.
