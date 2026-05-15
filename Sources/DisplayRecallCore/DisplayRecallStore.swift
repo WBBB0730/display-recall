@@ -32,20 +32,41 @@ public struct AppSettings: Equatable, Sendable, Codable {
 }
 
 public struct ProfileStoreDocument: Equatable, Sendable, Codable {
-    public static let currentSchemaVersion = 1
+    public static let currentSchemaVersion = 2
 
     public var schemaVersion: Int
     public var profiles: [DisplayProfile]
     public var automaticDefaultRules: [AutomaticDefaultRule]
+    public var displaySetupGroups: [DisplaySetupGroup]
 
     public init(
         schemaVersion: Int = currentSchemaVersion,
         profiles: [DisplayProfile] = [],
-        automaticDefaultRules: [AutomaticDefaultRule] = []
+        automaticDefaultRules: [AutomaticDefaultRule] = [],
+        displaySetupGroups: [DisplaySetupGroup] = []
     ) {
         self.schemaVersion = schemaVersion
         self.profiles = profiles
         self.automaticDefaultRules = automaticDefaultRules
+        self.displaySetupGroups = displaySetupGroups
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case profiles
+        case automaticDefaultRules
+        case displaySetupGroups
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        profiles = try container.decode([DisplayProfile].self, forKey: .profiles)
+        automaticDefaultRules = try container.decode([AutomaticDefaultRule].self, forKey: .automaticDefaultRules)
+        displaySetupGroups = try container.decodeIfPresent(
+            [DisplaySetupGroup].self,
+            forKey: .displaySetupGroups
+        ) ?? []
     }
 }
 
@@ -70,7 +91,14 @@ public struct DisplayRecallMigrations {
         guard document.schemaVersion <= ProfileStoreDocument.currentSchemaVersion else {
             throw DisplayRecallStoreError.unsupportedFutureSchema(version: document.schemaVersion)
         }
-        return document
+        var migrated = ProfileStoreDocument(
+            schemaVersion: ProfileStoreDocument.currentSchemaVersion,
+            profiles: document.profiles,
+            automaticDefaultRules: document.automaticDefaultRules,
+            displaySetupGroups: document.displaySetupGroups
+        )
+        addMissingDisplaySetupGroups(to: &migrated)
+        return migrated
     }
 
     public static func migrateSettings(_ document: SettingsStoreDocument) throws -> SettingsStoreDocument {
@@ -85,6 +113,30 @@ public struct DisplayRecallMigrations {
             throw DisplayRecallStoreError.unsupportedFutureSchema(version: document.schemaVersion)
         }
         return ActivityLogStoreDocument(schemaVersion: document.schemaVersion, entries: document.entries)
+    }
+}
+
+private extension DisplayRecallMigrations {
+    static func addMissingDisplaySetupGroups(to document: inout ProfileStoreDocument) {
+        var existingFingerprints = Set(document.displaySetupGroups.map(\.fingerprint))
+        var existingNames = document.displaySetupGroups.map(\.name)
+
+        for profile in document.profiles where !existingFingerprints.contains(profile.displaySetupFingerprint) {
+            let name = DisplaySetupGroupNameGenerator.firstAvailableDefaultName(
+                existingNames: existingNames,
+                language: .english
+            )
+            document.displaySetupGroups.append(
+                DisplaySetupGroup(
+                    fingerprint: profile.displaySetupFingerprint,
+                    name: name,
+                    createdAt: profile.createdAt,
+                    updatedAt: profile.updatedAt
+                )
+            )
+            existingFingerprints.insert(profile.displaySetupFingerprint)
+            existingNames.append(name)
+        }
     }
 }
 

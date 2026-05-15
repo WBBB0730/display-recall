@@ -14,31 +14,31 @@ This slice should be demoable by opening the Profile module and seeing profiles 
 
 ## Acceptance criteria
 
-- [ ] A display setup group entity exists with only `id`, `fingerprint`, `name`, `createdAt`, and `updatedAt` semantics.
-- [ ] Existing profiles with the same display setup fingerprint are grouped under the same display setup group.
-- [ ] Existing profiles with different display setup fingerprints are grouped under different display setup groups.
-- [ ] Existing automatic apply rules still reference the same profile IDs after group creation or migration.
-- [ ] Display setup groups use generated friendly names when no user-provided name exists.
-- [ ] Generated display setup group names use an independent sequence from generated profile names.
-- [ ] Generated display setup group names start at 1 and use the first non-conflicting name.
-- [ ] Generated names localize to English and Simplified Chinese.
-- [ ] Existing profile names and group names do not change when language changes.
-- [ ] The Profile module main surface is a single-page grouped list, not a sidebar plus detail editor.
-- [ ] Profile search is removed from the simplified UI.
-- [ ] The right-side profile detail editor is removed from the main Profile UI.
-- [ ] Profile rows do not show hardware summaries such as `27 inch external screen + Built-in Retina Display`.
-- [ ] Profile rows do not show display setup fingerprints.
-- [ ] Profile rows do not show notes.
-- [ ] Profile rows do not show raw `displayplacer` commands.
-- [ ] Profile rows do not show constant high-risk, imported, edited-command, or exact-current-layout indicators.
-- [ ] The current display setup group is expanded by default.
-- [ ] Non-current non-empty display setup groups are visible and collapsed by default.
-- [ ] Non-current empty display setup groups are hidden.
-- [ ] Current empty display setup group is visible.
-- [ ] Expanded/collapsed state is local UI state only and is not persisted.
-- [ ] Tests cover migration/grouping for same-fingerprint and different-fingerprint profiles.
-- [ ] Tests cover generated display setup group names in English and Simplified Chinese.
-- [ ] Tests cover current/non-current and empty/non-empty visibility rules.
+- [x] A display setup group entity exists with only `id`, `fingerprint`, `name`, `createdAt`, and `updatedAt` semantics.
+- [x] Existing profiles with the same display setup fingerprint are grouped under the same display setup group.
+- [x] Existing profiles with different display setup fingerprints are grouped under different display setup groups.
+- [x] Existing automatic apply rules still reference the same profile IDs after group creation or migration.
+- [x] Display setup groups use generated friendly names when no user-provided name exists.
+- [x] Generated display setup group names use an independent sequence from generated profile names.
+- [x] Generated display setup group names start at 1 and use the first non-conflicting name.
+- [x] Generated names localize to English and Simplified Chinese.
+- [x] Existing profile names and group names do not change when language changes.
+- [x] The Profile module main surface is a single-page grouped list, not a sidebar plus detail editor.
+- [x] Profile search is removed from the simplified UI.
+- [x] The right-side profile detail editor is removed from the main Profile UI.
+- [x] Profile rows do not show hardware summaries such as `27 inch external screen + Built-in Retina Display`.
+- [x] Profile rows do not show display setup fingerprints.
+- [x] Profile rows do not show notes.
+- [x] Profile rows do not show raw `displayplacer` commands.
+- [x] Profile rows do not show constant high-risk, imported, edited-command, or exact-current-layout indicators.
+- [x] The current display setup group is expanded by default.
+- [x] Non-current non-empty display setup groups are visible and collapsed by default.
+- [x] Non-current empty display setup groups are hidden.
+- [x] Current empty display setup group is visible.
+- [x] Expanded/collapsed state is local UI state only and is not persisted.
+- [x] Tests cover migration/grouping for same-fingerprint and different-fingerprint profiles.
+- [x] Tests cover generated display setup group names in English and Simplified Chinese.
+- [x] Tests cover current/non-current and empty/non-empty visibility rules.
 
 ## Blocked by
 

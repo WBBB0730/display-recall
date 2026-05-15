@@ -24,7 +24,7 @@ final class DisplayRecallStoreTests: XCTestCase {
         let profilesDocument = try reloadedStore.loadProfiles()
         let settingsDocument = try reloadedStore.loadSettings()
 
-        XCTAssertEqual(profilesDocument.schemaVersion, 1)
+        XCTAssertEqual(profilesDocument.schemaVersion, ProfileStoreDocument.currentSchemaVersion)
         XCTAssertEqual(profilesDocument.profiles, [profile])
         XCTAssertEqual(profilesDocument.automaticDefaultRules, [rule])
         XCTAssertEqual(settingsDocument.schemaVersion, 1)
@@ -66,7 +66,92 @@ final class DisplayRecallStoreTests: XCTestCase {
 
         let migrated = try DisplayRecallMigrations.migrateProfiles(document)
 
-        XCTAssertEqual(migrated, document)
+        XCTAssertEqual(migrated.schemaVersion, ProfileStoreDocument.currentSchemaVersion)
+        XCTAssertEqual(migrated.profiles, document.profiles)
+        XCTAssertEqual(migrated.automaticDefaultRules, document.automaticDefaultRules)
+        XCTAssertEqual(migrated.displaySetupGroups.map(\.fingerprint), [profile.displaySetupFingerprint])
+    }
+
+    func testOldProfileDocumentsCreateDisplaySetupGroupsByFingerprint() throws {
+        let directory = try temporaryDirectory()
+        let store = DisplayRecallStore(applicationSupportDirectory: directory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let profileA = UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!
+        let profileB = UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!
+        let profileC = UUID(uuidString: "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC")!
+        let oldJSON = """
+        {
+          "schemaVersion": 1,
+          "profiles": [
+            {
+              "id": "\(profileA.uuidString)",
+              "schemaVersion": 1,
+              "name": "Desk A",
+              "notes": "",
+              "command": "displayplacer \\\"id:AAA res:1920x1080 enabled:true origin:(0,0) degree:0\\\"",
+              "displaySetupFingerprint": { "rawValue": "AAA|builtIn:false|count:1" },
+              "displaySummary": "27 inch external screen",
+              "backendVersion": "1.4.0",
+              "createdByAppVersion": "0.1.0",
+              "updatedByAppVersion": "0.1.0",
+              "isCommandEdited": false,
+              "importedNeedsFirstApplyConfirmation": false,
+              "createdAt": 10,
+              "updatedAt": 20
+            },
+            {
+              "id": "\(profileB.uuidString)",
+              "schemaVersion": 1,
+              "name": "Desk B",
+              "notes": "",
+              "command": "displayplacer \\\"id:AAA res:1280x720 enabled:true origin:(0,0) degree:0\\\"",
+              "displaySetupFingerprint": { "rawValue": "AAA|builtIn:false|count:1" },
+              "displaySummary": "27 inch external screen",
+              "backendVersion": "1.4.0",
+              "createdByAppVersion": "0.1.0",
+              "updatedByAppVersion": "0.1.0",
+              "isCommandEdited": false,
+              "importedNeedsFirstApplyConfirmation": false,
+              "createdAt": 30,
+              "updatedAt": 40
+            },
+            {
+              "id": "\(profileC.uuidString)",
+              "schemaVersion": 1,
+              "name": "Travel",
+              "notes": "",
+              "command": "displayplacer \\\"id:BBB res:1440x900 enabled:true origin:(0,0) degree:0\\\"",
+              "displaySetupFingerprint": { "rawValue": "BBB|builtIn:true|count:1" },
+              "displaySummary": "Built-in display",
+              "backendVersion": "1.4.0",
+              "createdByAppVersion": "0.1.0",
+              "updatedByAppVersion": "0.1.0",
+              "isCommandEdited": false,
+              "importedNeedsFirstApplyConfirmation": false,
+              "createdAt": 50,
+              "updatedAt": 60
+            }
+          ],
+          "automaticDefaultRules": [
+            {
+              "displaySetupFingerprint": { "rawValue": "AAA|builtIn:false|count:1" },
+              "profileId": "\(profileA.uuidString)"
+            }
+          ]
+        }
+        """
+        try oldJSON.write(to: store.profilesURL, atomically: true, encoding: .utf8)
+
+        let migrated = try store.loadProfiles()
+
+        XCTAssertEqual(migrated.schemaVersion, ProfileStoreDocument.currentSchemaVersion)
+        XCTAssertEqual(migrated.profiles.map(\.id), [profileA, profileB, profileC])
+        XCTAssertEqual(migrated.automaticDefaultRules.first?.profileId, profileA)
+        XCTAssertEqual(migrated.displaySetupGroups.map(\.fingerprint.rawValue), [
+            "AAA|builtIn:false|count:1",
+            "BBB|builtIn:true|count:1"
+        ])
+        XCTAssertEqual(migrated.displaySetupGroups.map(\.name), ["Display Set 1", "Display Set 2"])
     }
 
     private func temporaryDirectory() throws -> URL {

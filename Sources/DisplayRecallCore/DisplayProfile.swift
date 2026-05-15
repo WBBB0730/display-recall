@@ -57,6 +57,28 @@ public struct DisplayProfile: Equatable, Identifiable, Sendable, Codable {
     }
 }
 
+public struct DisplaySetupGroup: Equatable, Identifiable, Sendable, Codable {
+    public let id: UUID
+    public var fingerprint: DisplaySetupFingerprint
+    public var name: String
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        fingerprint: DisplaySetupFingerprint,
+        name: String,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.fingerprint = fingerprint
+        self.name = name
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
 public struct AutomaticDefaultRule: Equatable, Sendable, Codable {
     public let displaySetupFingerprint: DisplaySetupFingerprint
     public let profileId: UUID

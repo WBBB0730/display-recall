@@ -1760,127 +1760,99 @@ struct ProfilesContentView: View {
     @EnvironmentObject private var localization: LocalizationController
     @State private var document = ProfileStoreDocument()
     @State private var selectedProfileIDs = Set<UUID>()
-    @State private var searchQuery = ""
     @State private var currentFingerprint: DisplaySetupFingerprint?
     @State private var statusMessage = ""
     @State private var exportSheet: ProfileExportSheetState?
     @State private var importPreviewSheet: ProfileImportPreviewSheetState?
     @State private var createProfileSheet: CreateProfileSheetState?
+    @State private var expandedGroupIDs = Set<UUID>()
+    @State private var didInitializeExpandedGroups = false
 
-    private var visibleProfiles: [DisplayProfile] {
-        ProfileListFilter.filter(document.profiles, query: searchQuery)
+    private var groupSections: [ProfileGroupSection] {
+        ProfileGroupingProjection.sections(
+            document: document,
+            currentFingerprint: currentFingerprint
+        )
     }
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: $selectedProfileIDs) {
-                ForEach(visibleProfiles) { profile in
-                    HStack(spacing: 10) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(profile.name)
-                                .fontWeight(.medium)
-                            Text(profile.displaySummary.isEmpty ? profile.displaySetupFingerprint.rawValue : profile.displaySummary)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                        Spacer()
-                        HStack(spacing: 6) {
-                            if profile.displaySetupFingerprint == currentFingerprint {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                            }
-                            if isAutomaticDefault(profile) {
-                                Image(systemName: "bolt.fill")
-                                    .foregroundStyle(.blue)
-                            }
-                            if profile.importedNeedsFirstApplyConfirmation || profile.isCommandEdited {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.orange)
-                            }
-                        }
-                        .imageScale(.small)
-                    }
-                    .tag(profile.id)
-                }
-            }
-            .navigationTitle(localization.text(.profiles))
-            .searchable(text: $searchQuery, prompt: localization.text(.searchProfiles))
-            .toolbar {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
                 Button {
                     Task {
                         await saveCurrentLayout()
                     }
                 } label: {
-                    Label(localization.text(.createProfile), systemImage: "plus")
+                    Label(localization.text(.saveCurrentLayout), systemImage: "plus")
                 }
-                Button {
-                    exportSelectedProfiles()
-                } label: {
-                    Label(localization.text(.export), systemImage: "square.and.arrow.up")
-                }
-                .disabled(document.profiles.isEmpty)
+                .buttonStyle(.borderedProminent)
 
-                Button {
-                    Task {
-                        await importBackup()
-                    }
-                } label: {
-                    Label(localization.text(.importProfiles), systemImage: "square.and.arrow.down")
-                }
+                Spacer()
             }
-        } detail: {
-            if let selectedProfileBinding {
-                ProfileDetailView(
-                    profile: selectedProfileBinding,
-                    isAutomaticDefault: isAutomaticDefault(selectedProfileBinding.wrappedValue),
-                    statusMessage: statusMessage,
-                    onApply: { profile in
-                        Task {
-                            await apply(profile)
-                        }
-                    },
-                    onSetDefault: { profile in
-                        setAutomaticDefault(profile)
-                    },
-                    onClearDefault: { profile in
-                        clearAutomaticDefault(profile)
-                    },
-                    onRebind: { profile in
-                        Task {
-                            await rebind(profile)
-                        }
-                    },
-                    onExport: { profile in
-                        exportProfile(profile)
-                    },
-                    onDelete: { profile in
-                        deleteProfile(profile)
-                    },
-                    onSaveCommand: { profile, command in
-                        updateCommand(profile, command: command)
-                    }
-                )
-            } else {
-                VStack(spacing: 12) {
+
+            if groupSections.isEmpty {
+                VStack(spacing: 10) {
                     Image(systemName: "display.2")
-                        .font(.system(size: 44))
+                        .font(.system(size: 40))
                         .foregroundStyle(.secondary)
-
-                    Text(localization.text(.noProfileSelected))
-                        .font(.title2)
+                    Text(localization.status("No configurations yet.", chinese: "还没有配置"))
+                        .font(.title3)
                         .fontWeight(.semibold)
-
-                    Text(localization.text(.noProfileSelectedDescription))
-                        .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding()
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(groupSections, id: \.group.id) { section in
+                            DisclosureGroup(isExpanded: expandedBinding(for: section.group)) {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    if section.profiles.isEmpty {
+                                        Text(localization.status("No configurations yet.", chinese: "还没有配置"))
+                                            .foregroundStyle(.secondary)
+                                            .padding(.vertical, 8)
+                                    } else {
+                                        ForEach(section.profiles) { profile in
+                                            HStack {
+                                                Text(profile.name)
+                                                    .fontWeight(.medium)
+                                                    .lineLimit(1)
+                                                Spacer()
+                                            }
+                                            .padding(.vertical, 8)
+                                        }
+                                    }
+                                }
+                                .padding(.leading, 8)
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Text(section.group.name)
+                                        .font(.headline)
+                                    if section.isCurrent {
+                                        Text(localization.text(.currentDisplaySetup))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            .padding(12)
+                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            if !statusMessage.isEmpty {
+                Text(statusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
+        .padding(20)
         .task {
             loadProfiles()
             await refreshCurrentFingerprint()
+            initializeExpandedGroupsIfNeeded()
         }
         .sheet(item: $exportSheet) { sheet in
             ExportProfilesSheet(
@@ -1922,6 +1894,25 @@ struct ProfilesContentView: View {
             )
             .environmentObject(localization)
         }
+    }
+
+    private func expandedBinding(for group: DisplaySetupGroup) -> Binding<Bool> {
+        Binding(
+            get: { expandedGroupIDs.contains(group.id) },
+            set: { isExpanded in
+                if isExpanded {
+                    expandedGroupIDs.insert(group.id)
+                } else {
+                    expandedGroupIDs.remove(group.id)
+                }
+            }
+        )
+    }
+
+    private func initializeExpandedGroupsIfNeeded() {
+        guard !didInitializeExpandedGroups else { return }
+        expandedGroupIDs = Set(groupSections.filter(\.isExpandedByDefault).map(\.group.id))
+        didInitializeExpandedGroups = true
     }
 
     private var selectedProfileBinding: Binding<DisplayProfile>? {

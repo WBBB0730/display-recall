@@ -397,6 +397,25 @@ public enum ProfileNameGenerator {
     }
 }
 
+public enum DisplaySetupGroupNameGenerator {
+    public static func defaultName(index: Int, language: LanguagePreference) -> String {
+        let number = max(1, index)
+        return language.resolved() == .simplifiedChinese ? "显示器组合 \(number)" : "Display Set \(number)"
+    }
+
+    public static func firstAvailableDefaultName(
+        existingNames: [String],
+        language: LanguagePreference
+    ) -> String {
+        let existing = Set(existingNames)
+        var index = 1
+        while existing.contains(defaultName(index: index, language: language)) {
+            index += 1
+        }
+        return defaultName(index: index, language: language)
+    }
+}
+
 public struct ShortcutBinding: Equatable, Sendable, Codable {
     public let profileId: UUID
     public var keyEquivalent: String?
