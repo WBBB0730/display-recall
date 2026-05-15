@@ -343,8 +343,8 @@ final class StatusBarController: NSObject {
         let makeAutomaticDefault: Bool
     }
 
-    private let menuMinimumWidth: CGFloat = 280
-    private let menuTitleMaximumWidth: CGFloat = 220
+    private let menuMinimumWidth: CGFloat = 200
+    private let menuTitleMaximumWidth: CGFloat = 150
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private var document = ProfileStoreDocument()
     private var currentFingerprint: DisplaySetupFingerprint?
