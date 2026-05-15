@@ -2087,6 +2087,12 @@ struct ProfilesContentView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
+                                .background(
+                                    hoveredGroupID == section.group.id
+                                        ? Color.primary.opacity(0.08)
+                                        : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                )
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     toggleExpanded(section.group)
@@ -2094,6 +2100,7 @@ struct ProfilesContentView: View {
                                 .onHover { isHovered in
                                     hoveredGroupID = isHovered ? section.group.id : nil
                                 }
+                                .animation(.easeInOut(duration: 0.12), value: hoveredGroupID)
 
                                 if isExpanded(section.group) {
                                     VStack(alignment: .leading, spacing: 0) {
