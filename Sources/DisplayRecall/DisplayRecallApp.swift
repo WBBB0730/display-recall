@@ -2945,12 +2945,9 @@ struct ProfilesContentView: View {
                                                         .displayRecallSwitchControl()
 
                                                         Spacer()
-                                                    }
 
-                                                    HStack(spacing: 8) {
-                                                        Spacer()
                                                         Text(shortcutStatus(for: profile))
-                                                            .font(.caption)
+                                                            .font(.body)
                                                             .foregroundStyle(.secondary)
                                                         Button(shortcutActionTitle(for: profile)) {
                                                             shortcutSheet = ShortcutSheetState(
@@ -2958,7 +2955,7 @@ struct ProfilesContentView: View {
                                                                 existingShortcut: shortcutBinding(for: profile)?.shortcut
                                                             )
                                                         }
-                                                        .font(.caption)
+                                                        .font(.body)
                                                         .buttonStyle(.borderless)
                                                     }
                                             }
@@ -3127,9 +3124,13 @@ struct ProfilesContentView: View {
     }
 
     private func shortcutStatus(for profile: DisplayProfile) -> String {
-        let value = shortcutBinding(for: profile)?.keyEquivalent
+        let value = shortcutBinding(for: profile)?.keyEquivalent.map(spacedShortcut)
             ?? localization.status("Not Set", chinese: "未设置")
         return localization.status("Shortcut: \(value)", chinese: "快捷键：\(value)")
+    }
+
+    private func spacedShortcut(_ shortcut: String) -> String {
+        shortcut.map(String.init).joined(separator: " ")
     }
 
     private func shortcutActionTitle(for profile: DisplayProfile) -> String {
