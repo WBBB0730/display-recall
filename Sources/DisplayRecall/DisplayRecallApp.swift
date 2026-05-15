@@ -1688,17 +1688,9 @@ private struct ExportProfilesSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center, spacing: 8) {
-                Image(systemName: "square.and.arrow.up")
-                    .imageScale(.medium)
-                    .foregroundStyle(.secondary)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(localization.text(.exportProfiles))
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                }
-            }
+            Text(localization.text(.exportProfiles))
+                .font(.title3)
+                .fontWeight(.semibold)
 
             HStack(spacing: 12) {
                 triStateSelectionRow(
@@ -2080,7 +2072,6 @@ struct ProfilesContentView: View {
                                                 .font(.system(size: 9, weight: .semibold))
                                                 .frame(width: 12, height: 12)
                                                 .rotationEffect(.degrees(isExpanded(section.group) ? 90 : 0))
-                                                .animation(.easeInOut(duration: 0.16), value: isExpanded(section.group))
                                             Text(displayName(for: section.group))
                                                 .font(.headline)
                                             if section.isCurrent {
@@ -2172,7 +2163,6 @@ struct ProfilesContentView: View {
                             }
                             .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                             .clipped()
-                            .animation(.easeInOut(duration: 0.18), value: isExpanded(section.group))
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
