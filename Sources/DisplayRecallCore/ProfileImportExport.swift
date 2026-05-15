@@ -208,7 +208,7 @@ public enum ProfileImporter {
         var importedIDMap: [UUID: UUID] = [:]
 
         for importedProfile in backup.profiles {
-            let conflictIndex = profiles.firstIndex { $0.name == importedProfile.name }
+            let conflictIndex = profiles.firstIndex { $0.id == importedProfile.id }
             let matchesCurrentSetup = importedProfile.displaySetupFingerprint == currentFingerprint
 
             switch (conflictIndex, conflictStrategy) {
@@ -226,14 +226,11 @@ public enum ProfileImporter {
                 importedIDMap[importedProfile.id] = localID
 
             case (.some, .keepBoth), (.none, _):
-                let localID = importAsNew ? UUID() : importedProfile.id
-                let localName = conflictIndex == nil
-                    ? importedProfile.name
-                    : uniqueName(for: importedProfile.name, existingNames: Set(profiles.map(\.name)))
+                let localID = conflictIndex == nil ? importedProfile.id : UUID()
                 profiles.append(copy(
                     importedProfile,
                     id: localID,
-                    name: localName,
+                    name: importedProfile.name,
                     importedNeedsFirstApplyConfirmation: !matchesCurrentSetup
                 ))
                 importedIDMap[importedProfile.id] = localID
@@ -280,7 +277,7 @@ public enum ProfileImporter {
         in currentDocument: ProfileStoreDocument
     ) -> [ImportProfileConflict] {
         importedProfiles.compactMap { imported in
-            guard let existing = currentDocument.profiles.first(where: { $0.name == imported.name }) else {
+            guard let existing = currentDocument.profiles.first(where: { $0.id == imported.id }) else {
                 return nil
             }
             return ImportProfileConflict(

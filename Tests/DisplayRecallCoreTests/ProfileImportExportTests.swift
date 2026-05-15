@@ -145,7 +145,7 @@ final class ProfileImportExportTests: XCTestCase {
         XCTAssertEqual(preview.profileNames, ["Home", "Travel"])
     }
 
-    func testImportPreviewShowsCountNamesConflictsAndMatchingStatus() throws {
+    func testImportPreviewTreatsSameNameDifferentUUIDProfilesAsNonConflicting() throws {
         let local = DisplayProfile.fixture(id: Self.homeID, name: "Home")
         let importedHome = DisplayProfile.fixture(id: Self.officeID, name: "Home")
         let importedTravel = DisplayProfile.fixture(id: Self.travelID, name: "Travel", fingerprint: "MISSING|builtIn:false|count:1")
@@ -159,13 +159,13 @@ final class ProfileImportExportTests: XCTestCase {
 
         XCTAssertEqual(preview.profileCount, 2)
         XCTAssertEqual(preview.profileNames, ["Home", "Travel"])
-        XCTAssertEqual(preview.conflicts.map(\.importedName), ["Home"])
+        XCTAssertTrue(preview.conflicts.isEmpty)
         XCTAssertEqual(preview.matchingStatuses.map(\.matchesCurrentDisplaySetup), [true, false])
     }
 
     func testImportPreviewConfirmationSummaryOnlyIncludesCountsNeededForConfirmation() throws {
         let local = DisplayProfile.fixture(id: Self.homeID, name: "Home")
-        let importedHome = DisplayProfile.fixture(id: Self.officeID, name: "Home")
+        let importedHome = DisplayProfile.fixture(id: Self.homeID, name: "Home")
         let importedTravel = DisplayProfile.fixture(id: Self.travelID, name: "Travel", fingerprint: "MISSING|builtIn:false|count:1")
         let backup = ProfileBackupDocument(profiles: [importedHome, importedTravel])
 
@@ -198,9 +198,9 @@ final class ProfileImportExportTests: XCTestCase {
         XCTAssertFalse(summary.showsConflictStrategy)
     }
 
-    func testImportConflictStrategiesKeepBothReplaceOrSkip() throws {
+    func testImportConflictStrategiesUseUUIDAndKeepNamesUnchanged() throws {
         let local = DisplayProfile.fixture(id: Self.homeID, name: "Home")
-        let imported = DisplayProfile.fixture(id: Self.officeID, name: "Home")
+        let imported = DisplayProfile.fixture(id: Self.homeID, name: "Home")
         let backup = ProfileBackupDocument(profiles: [imported])
         let current = ProfileStoreDocument(profiles: [local])
 
@@ -223,11 +223,29 @@ final class ProfileImportExportTests: XCTestCase {
             conflictStrategy: .skipConflict
         )
 
-        XCTAssertEqual(keepBoth.profiles.map(\.name), ["Home", "Home 2"])
+        XCTAssertEqual(keepBoth.profiles.map(\.name), ["Home", "Home"])
+        XCTAssertEqual(keepBoth.profiles[0].id, local.id)
         XCTAssertNotEqual(keepBoth.profiles[1].id, imported.id)
-        XCTAssertEqual(replace.profiles.map(\.id), [local.id])
+        XCTAssertEqual(replace.profiles.map(\.id), [imported.id])
         XCTAssertEqual(replace.profiles[0].name, "Home")
         XCTAssertEqual(skip.profiles, [local])
+    }
+
+    func testSkipConflictOnlySkipsProfilesWithDuplicateUUIDs() throws {
+        let local = DisplayProfile.fixture(id: Self.homeID, name: "Home")
+        let duplicate = DisplayProfile.fixture(id: Self.homeID, name: "Home imported")
+        let newProfile = DisplayProfile.fixture(id: Self.officeID, name: "Home")
+        let backup = ProfileBackupDocument(profiles: [duplicate, newProfile])
+
+        let result = try ProfileImporter.importProfiles(
+            from: backup,
+            into: ProfileStoreDocument(profiles: [local]),
+            currentFingerprint: local.displaySetupFingerprint,
+            conflictStrategy: .skipConflict
+        )
+
+        XCTAssertEqual(result.profiles.map(\.id), [local.id, newProfile.id])
+        XCTAssertEqual(result.profiles.map(\.name), ["Home", "Home"])
     }
 
     func testImportedNonMatchingProfilesAreMarkedAndNotAutomaticDefaults() throws {

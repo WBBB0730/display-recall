@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: completed
 
 # 使用 UUID 判断导入冲突
 
@@ -12,13 +12,13 @@ Change profile import conflict semantics so that conflicts are detected by profi
 
 ## Acceptance criteria
 
-- [ ] Same-name profiles with different UUIDs import without conflict.
-- [ ] Same-UUID profiles are reported as conflicts in the import preview summary.
-- [ ] Keep Both on a UUID conflict imports a second profile with a new UUID and the original imported name unchanged.
-- [ ] Replace Existing on a UUID conflict replaces the existing profile while preserving that UUID.
-- [ ] Skip Conflict skips only imported profiles whose UUIDs already exist locally.
-- [ ] Non-conflicting imported profiles preserve their UUIDs.
-- [ ] The import preview stays minimal and only shows conflict strategy when UUID conflicts exist.
+- [x] Same-name profiles with different UUIDs import without conflict.
+- [x] Same-UUID profiles are reported as conflicts in the import preview summary.
+- [x] Keep Both on a UUID conflict imports a second profile with a new UUID and the original imported name unchanged.
+- [x] Replace Existing on a UUID conflict replaces the existing profile while preserving that UUID.
+- [x] Skip Conflict skips only imported profiles whose UUIDs already exist locally.
+- [x] Non-conflicting imported profiles preserve their UUIDs.
+- [x] The import preview stays minimal and only shows conflict strategy when UUID conflicts exist.
 
 ## Blocked by
 
