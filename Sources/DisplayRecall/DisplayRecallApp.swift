@@ -2946,10 +2946,7 @@ struct ProfilesContentView: View {
 
                                                         Spacer()
 
-                                                        Text(shortcutStatus(for: profile))
-                                                            .font(.body)
-                                                            .foregroundStyle(.secondary)
-                                                        Button(shortcutActionTitle(for: profile)) {
+                                                        Button(shortcutDisplayTitle(for: profile)) {
                                                             shortcutSheet = ShortcutSheetState(
                                                                 profile: profile,
                                                                 existingShortcut: shortcutBinding(for: profile)?.shortcut
@@ -2957,6 +2954,22 @@ struct ProfilesContentView: View {
                                                         }
                                                         .font(.body)
                                                         .buttonStyle(.borderless)
+                                                        .foregroundStyle(
+                                                            shortcutBinding(for: profile)?.shortcut == nil
+                                                                ? .secondary
+                                                                : .primary
+                                                        )
+                                                        .opacity(
+                                                            shortcutBinding(for: profile)?.shortcut == nil
+                                                                && hoveredProfileID != profile.id
+                                                                ? 0
+                                                                : 1
+                                                        )
+                                                        .allowsHitTesting(
+                                                            shortcutBinding(for: profile)?.shortcut != nil
+                                                                || hoveredProfileID == profile.id
+                                                        )
+                                                        .animation(profileHoverAnimation, value: hoveredProfileID)
                                                     }
                                             }
                                             .padding(.vertical, 12)
@@ -3123,20 +3136,11 @@ struct ProfilesContentView: View {
         settings.shortcutBindings.first { $0.profileId == profile.id }
     }
 
-    private func shortcutStatus(for profile: DisplayProfile) -> String {
-        let value = shortcutBinding(for: profile)?.keyEquivalent.map(spacedShortcut)
-            ?? localization.status("Not Set", chinese: "未设置")
-        return localization.status("Shortcut: \(value)", chinese: "快捷键：\(value)")
-    }
-
-    private func spacedShortcut(_ shortcut: String) -> String {
-        shortcut.map(String.init).joined(separator: " ")
-    }
-
-    private func shortcutActionTitle(for profile: DisplayProfile) -> String {
-        shortcutBinding(for: profile)?.shortcut == nil
-            ? localization.status("Set", chinese: "设置")
-            : localization.status("Edit", chinese: "修改")
+    private func shortcutDisplayTitle(for profile: DisplayProfile) -> String {
+        guard let shortcut = shortcutBinding(for: profile)?.keyEquivalent else {
+            return localization.status("Set Shortcut", chinese: "设置快捷键")
+        }
+        return shortcut.map(String.init).joined(separator: " ")
     }
 
     private func shortcutConflictName(
