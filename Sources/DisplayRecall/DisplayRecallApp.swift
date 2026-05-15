@@ -1966,25 +1966,44 @@ private struct ImportPreviewSheet: View {
 
 private let profileHoverAnimation = Animation.easeInOut(duration: 0.18)
 
-private struct TopRoundedRectangle: Shape {
+private struct GroupHeaderHoverShape: Shape {
     let radius: CGFloat
+    let roundsBottomCorners: Bool
 
     func path(in rect: CGRect) -> Path {
         let cornerRadius = min(radius, rect.width / 2, rect.height / 2)
+        let bottomRadius = roundsBottomCorners ? cornerRadius : 0
         var path = Path()
 
-        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + cornerRadius))
+        path.move(to: CGPoint(x: rect.minX + bottomRadius, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.maxX - bottomRadius, y: rect.maxY))
+        if bottomRadius > 0 {
+            path.addQuadCurve(
+                to: CGPoint(x: rect.maxX, y: rect.maxY - bottomRadius),
+                control: CGPoint(x: rect.maxX, y: rect.maxY)
+            )
+        } else {
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        }
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + cornerRadius))
         path.addQuadCurve(
-            to: CGPoint(x: rect.minX + cornerRadius, y: rect.minY),
-            control: CGPoint(x: rect.minX, y: rect.minY)
-        )
-        path.addLine(to: CGPoint(x: rect.maxX - cornerRadius, y: rect.minY))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.maxX, y: rect.minY + cornerRadius),
+            to: CGPoint(x: rect.maxX - cornerRadius, y: rect.minY),
             control: CGPoint(x: rect.maxX, y: rect.minY)
         )
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX + cornerRadius, y: rect.minY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX, y: rect.minY + cornerRadius),
+            control: CGPoint(x: rect.minX, y: rect.minY)
+        )
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - bottomRadius))
+        if bottomRadius > 0 {
+            path.addQuadCurve(
+                to: CGPoint(x: rect.minX + bottomRadius, y: rect.maxY),
+                control: CGPoint(x: rect.minX, y: rect.maxY)
+            )
+        } else {
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        }
         path.closeSubpath()
 
         return path
@@ -2170,7 +2189,10 @@ struct ProfilesContentView: View {
                                     hoveredGroupID == section.group.id && hoveredGroupActionID != section.group.id
                                         ? Color.primary.opacity(0.08)
                                         : Color.clear,
-                                    in: TopRoundedRectangle(radius: 6)
+                                    in: GroupHeaderHoverShape(
+                                        radius: 6,
+                                        roundsBottomCorners: !isExpanded(section.group)
+                                    )
                                 )
                                 .contentShape(Rectangle())
                                 .onTapGesture {
