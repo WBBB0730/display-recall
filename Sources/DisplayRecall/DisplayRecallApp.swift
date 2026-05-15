@@ -274,11 +274,12 @@ private struct MenuSaveProfilePanelView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(localization.text(.createProfile))
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(localization.text(.saveCurrentProfile))
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
-            TextField(localization.text(.profileName), text: $name)
+            TextField("", text: $name)
                 .textFieldStyle(.roundedBorder)
                 .focused($nameFocused)
 
@@ -287,7 +288,7 @@ private struct MenuSaveProfilePanelView: View {
             HStack {
                 Spacer()
                 Button(localization.text(.cancel), action: onCancel)
-                Button(localization.text(.saveCurrentLayout)) {
+                Button(localization.text(.save)) {
                     onSave(trimmedName, makeAutomaticDefault)
                 }
                 .keyboardShortcut(.defaultAction)
@@ -295,7 +296,7 @@ private struct MenuSaveProfilePanelView: View {
             }
         }
         .padding(16)
-        .frame(width: 320)
+        .frame(width: 300)
         .onAppear {
             nameFocused = true
         }
@@ -603,12 +604,14 @@ final class StatusBarController: NSObject {
         var panel: NSPanel!
 
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 168),
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 148),
             styleMask: [.titled],
             backing: .buffered,
             defer: false
         )
-        panel.title = localization.text(.saveCurrentLayout)
+        panel.title = ""
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
         panel.isReleasedWhenClosed = false
         panel.center()
         panel.contentView = NSHostingView(

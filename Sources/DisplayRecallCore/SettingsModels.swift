@@ -108,7 +108,9 @@ public enum AppLocalizationKey: String, CaseIterable, Equatable, Sendable {
     case refresh
     case replaceExisting
     case recentActivityDescription
+    case save
     case saveCommand
+    case saveCurrentProfile
     case saveCurrentLayout
     case searchProfiles
     case selectedProfiles
@@ -233,7 +235,9 @@ public enum AppLocalization {
             .refresh: "Refresh",
             .replaceExisting: "Replace Existing",
             .recentActivityDescription: "Recent automation, apply, import, and diagnostic events.",
+            .save: "Save",
             .saveCommand: "Save Command",
+            .saveCurrentProfile: "Save Current Profile",
             .saveCurrentLayout: "Save Current Layout",
             .searchProfiles: "Search profiles",
             .selectedProfiles: "Selected profiles",
@@ -330,7 +334,9 @@ public enum AppLocalization {
             .refresh: "刷新",
             .replaceExisting: "替换现有",
             .recentActivityDescription: "最近的自动化、应用、导入和诊断事件。",
+            .save: "保存",
             .saveCommand: "保存命令",
+            .saveCurrentProfile: "保存当前配置",
             .saveCurrentLayout: "保存当前布局",
             .searchProfiles: "搜索配置",
             .selectedProfiles: "所选配置",
