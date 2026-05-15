@@ -173,6 +173,34 @@ final class ProfileManagementTests: XCTestCase {
         XCTAssertEqual(result.stdout, "ok")
     }
 
+    func testManualApplyDoesNotMutateAutomaticApplyRules() async throws {
+        let profile = DisplayProfile.fixture()
+        let rule = AutomaticDefaultRule(
+            displaySetupFingerprint: profile.displaySetupFingerprint,
+            profileId: profile.id
+        )
+        let manager = ProfileManager(
+            document: ProfileStoreDocument(
+                profiles: [profile],
+                automaticDefaultRules: [rule]
+            )
+        )
+
+        _ = try await manager.apply(profile) { _ in
+            DisplayplacerBackendRunResult(
+                stdout: "ok",
+                stderr: "",
+                exitCode: 0,
+                backendPath: "/bin/displayplacer",
+                backendArchitecture: .appleSilicon,
+                backendVersion: "1.4.0",
+                backendSource: .bundled
+            )
+        }
+
+        XCTAssertEqual(manager.document.automaticDefaultRules, [rule])
+    }
+
     func testSearchProfilesMatchesNameNotesAndDisplaySummary() {
         let home = DisplayProfile.fixture(name: "Home", notes: "Standing desk", summary: "27 inch external screen")
         let travel = DisplayProfile.fixture(name: "Travel", notes: "Hotel", summary: "Built-in display")

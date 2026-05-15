@@ -38,6 +38,7 @@ public enum AppLocalizationKey: String, CaseIterable, Equatable, Sendable {
     case advancedCommand
     case allActivity
     case apply
+    case applyConfiguration
     case applyEvents
     case applyNow
     case appearance
@@ -166,6 +167,7 @@ public enum AppLocalization {
             .advancedCommand: "Advanced Command",
             .allActivity: "All",
             .apply: "Apply",
+            .applyConfiguration: "Apply Configuration",
             .applyEvents: "Applies",
             .applyNow: "Apply Now",
             .appearance: "Appearance",
@@ -266,6 +268,7 @@ public enum AppLocalization {
             .advancedCommand: "高级命令",
             .allActivity: "全部",
             .apply: "应用",
+            .applyConfiguration: "应用配置",
             .applyEvents: "应用",
             .applyNow: "立即应用",
             .appearance: "外观",

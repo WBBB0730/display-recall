@@ -1883,6 +1883,9 @@ struct ProfilesContentView: View {
                                                     isOn: automaticApplyBinding(for: profile)
                                                 )
                                                 .toggleStyle(.switch)
+                                                Button(localization.text(.applyConfiguration)) {
+                                                    applyProfileFromRow(profile)
+                                                }
                                                 Menu {
                                                     Button(localization.status("Rename...", chinese: "重命名…")) {
                                                         renameSheet = RenameSheetState(
@@ -2051,6 +2054,37 @@ struct ProfilesContentView: View {
         } catch {
             statusMessage = error.localizedDescription
         }
+    }
+
+    private func applyProfileFromRow(_ profile: DisplayProfile) {
+        guard confirmApplyIfNeeded(profile) else {
+            return
+        }
+        Task {
+            await apply(profile)
+        }
+    }
+
+    private func confirmApplyIfNeeded(_ profile: DisplayProfile) -> Bool {
+        let requiresConfirmation = profile.displaySetupFingerprint != currentFingerprint
+            || profile.importedNeedsFirstApplyConfirmation
+            || profile.isCommandEdited
+        guard requiresConfirmation else {
+            return true
+        }
+
+        let alert = NSAlert()
+        alert.messageText = localization.status(
+            "Apply \(profile.name)?",
+            chinese: "应用 \(profile.name)？"
+        )
+        alert.informativeText = localization.status(
+            "This configuration may belong to a different display setup or need extra care.",
+            chinese: "这个配置可能属于其他显示器组合，或需要额外确认。"
+        )
+        alert.addButton(withTitle: localization.text(.applyConfiguration))
+        alert.addButton(withTitle: localization.text(.cancel))
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private var selectedProfileBinding: Binding<DisplayProfile>? {
