@@ -73,7 +73,8 @@ Display Recall 的 Profile 列表已经被简化成按显示器组合分组的�
 - Default the export sheet to all profiles selected.
 - Support all-profile, display-setup-group, and individual profile selection inside the export sheet.
 - Style the export sheet as a compact, sectioned panel with a clear summary, bounded scrolling, and calm spacing.
-- Show only the selected profile count in the export sheet summary; do not list every selected profile name.
+- Show the top export sheet summary as selected/total count, and keep the footer summary to a selected count only; do not list every selected profile name.
+- Use a thin AppKit-backed native checkbox only for all-profile and display-setup-group tri-state selection, because AppKit `NSButton` supports mixed state natively.
 - Keep selected-profile export mapped to the existing multiple-profile export selection.
 - Use a plain `.json` default filename for backup exports.
 - Do not override NSSavePanel title, confirmation button, message, or filename label; let the native save dialog follow system/AppKit localization while Display Recall only supplies the suggested `.json` filename and allowed content type.

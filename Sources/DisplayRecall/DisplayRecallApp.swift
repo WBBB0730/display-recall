@@ -1491,6 +1491,62 @@ private struct ProfileExportSheetState: Identifiable {
     let initialSelectedProfileIDs: Set<UUID>
 }
 
+private enum CheckboxSelectionState {
+    case off
+    case mixed
+    case on
+
+    var controlState: NSControl.StateValue {
+        switch self {
+        case .off:
+            .off
+        case .mixed:
+            .mixed
+        case .on:
+            .on
+        }
+    }
+}
+
+private struct TriStateCheckbox: NSViewRepresentable {
+    let state: CheckboxSelectionState
+    let action: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(action: action)
+    }
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton(checkboxWithTitle: "", target: context.coordinator, action: #selector(Coordinator.toggle))
+        button.allowsMixedState = true
+        button.setButtonType(.switch)
+        button.isBordered = false
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 18),
+            button.heightAnchor.constraint(equalToConstant: 18)
+        ])
+        return button
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        context.coordinator.action = action
+        button.state = state.controlState
+    }
+
+    final class Coordinator: NSObject {
+        var action: () -> Void
+
+        init(action: @escaping () -> Void) {
+            self.action = action
+        }
+
+        @objc func toggle() {
+            action()
+        }
+    }
+}
+
 private struct ProfileImportPreviewSheetState: Identifiable {
     let id = UUID()
     let backup: ProfileBackupDocument
@@ -1643,17 +1699,17 @@ private struct ExportProfilesSheet: View {
                     Text(localization.text(.exportProfiles))
                         .font(.title3)
                         .fontWeight(.semibold)
-                    Text(localization.text(.chooseExportScope))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
             HStack(spacing: 12) {
-                Toggle(localization.text(.allProfiles), isOn: allProfilesBinding)
-                    .toggleStyle(.checkbox)
-                    .fontWeight(.medium)
+                triStateSelectionRow(
+                    title: localization.text(.allProfiles),
+                    state: selectionState(for: allProfileIDs),
+                    fontWeight: .medium
+                ) {
+                    toggleAllProfiles()
+                }
 
                 Spacer()
 
@@ -1673,10 +1729,13 @@ private struct ExportProfilesSheet: View {
                     ForEach(sections, id: \.group.id) { section in
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 10) {
-                                Toggle(displayName(for: section.group), isOn: groupBinding(for: section))
-                                    .toggleStyle(.checkbox)
-                                    .fontWeight(.semibold)
-                                    .lineLimit(1)
+                                triStateSelectionRow(
+                                    title: displayName(for: section.group),
+                                    state: selectionState(for: Set(section.profiles.map(\.id))),
+                                    fontWeight: .semibold
+                                ) {
+                                    toggleGroup(section)
+                                }
 
                                 Spacer()
 
@@ -1742,7 +1801,7 @@ private struct ExportProfilesSheet: View {
     }
 
     private var selectedCountText: String {
-        selectionSummaryText(count: selectedProfileIDs.count)
+        "\(selectedProfileIDs.count)/\(allProfileIDs.count)"
     }
 
     private func selectionSummaryText(count: Int) -> String {
@@ -1758,31 +1817,54 @@ private struct ExportProfilesSheet: View {
         return "\(selectedCount)/\(profileIDs.count)"
     }
 
-    private var allProfilesBinding: Binding<Bool> {
-        Binding(
-            get: { selectedProfileIDs == allProfileIDs && !allProfileIDs.isEmpty },
-            set: { isSelected in
-                if isSelected {
-                    selectedProfileIDs = allProfileIDs
-                } else {
-                    selectedProfileIDs.removeAll()
-                }
-            }
-        )
+    private func triStateSelectionRow(
+        title: String,
+        state: CheckboxSelectionState,
+        fontWeight: Font.Weight,
+        action: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 5) {
+            TriStateCheckbox(state: state, action: action)
+                .frame(width: 18, height: 18)
+
+            Text(title)
+                .fontWeight(fontWeight)
+                .lineLimit(1)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: action)
     }
 
-    private func groupBinding(for section: ProfileGroupSection) -> Binding<Bool> {
+    private func selectionState(for profileIDs: Set<UUID>) -> CheckboxSelectionState {
+        guard !profileIDs.isEmpty else {
+            return .off
+        }
+
+        let selectedCount = profileIDs.intersection(selectedProfileIDs).count
+        if selectedCount == 0 {
+            return .off
+        }
+        if selectedCount == profileIDs.count {
+            return .on
+        }
+        return .mixed
+    }
+
+    private func toggleAllProfiles() {
+        if selectionState(for: allProfileIDs) == .on {
+            selectedProfileIDs.removeAll()
+        } else {
+            selectedProfileIDs = allProfileIDs
+        }
+    }
+
+    private func toggleGroup(_ section: ProfileGroupSection) {
         let profileIDs = Set(section.profiles.map(\.id))
-        return Binding(
-            get: { !profileIDs.isEmpty && profileIDs.isSubset(of: selectedProfileIDs) },
-            set: { isSelected in
-                if isSelected {
-                    selectedProfileIDs.formUnion(profileIDs)
-                } else {
-                    selectedProfileIDs.subtract(profileIDs)
-                }
-            }
-        )
+        if selectionState(for: profileIDs) == .on {
+            selectedProfileIDs.subtract(profileIDs)
+        } else {
+            selectedProfileIDs.formUnion(profileIDs)
+        }
     }
 
     private func profileBinding(for profile: DisplayProfile) -> Binding<Bool> {
