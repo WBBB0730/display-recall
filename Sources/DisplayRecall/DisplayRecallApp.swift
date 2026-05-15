@@ -3498,6 +3498,23 @@ struct AdjustableNumberField: NSViewRepresentable {
             }
             parent.value = min(max(textField.integerValue, parent.range.lowerBound), parent.range.upperBound)
         }
+
+        func control(
+            _ control: NSControl,
+            textView: NSTextView,
+            doCommandBy commandSelector: Selector
+        ) -> Bool {
+            switch commandSelector {
+            case #selector(NSResponder.moveUp(_:)):
+                step(delta: 1)
+                return true
+            case #selector(NSResponder.moveDown(_:)):
+                step(delta: -1)
+                return true
+            default:
+                return false
+            }
+        }
     }
 }
 
