@@ -201,6 +201,13 @@ public struct ProfileDeletionResult: Equatable, Sendable {
     public let nextSelectedProfileID: UUID?
 }
 
+public struct DisplaySetupGroupDeletionResult: Equatable, Sendable {
+    public let profilesDocument: ProfileStoreDocument
+    public let settings: AppSettings
+    public let logEntry: ActivityLogEntry
+    public let nextSelectedProfileID: UUID?
+}
+
 public enum ProfileDeletion {
     public static func delete(
         profileID: UUID,
@@ -230,6 +237,58 @@ public enum ProfileDeletion {
                 type: .profileDeleted,
                 trigger: .manual,
                 profileSnapshot: ProfileSnapshot(id: deletedProfile.id, name: deletedProfile.name)
+            ),
+            nextSelectedProfileID: remainingProfiles.first?.id
+        )
+    }
+}
+
+public enum DisplaySetupGroupDeletion {
+    public static func delete(
+        groupID: UUID,
+        profilesDocument: ProfileStoreDocument,
+        settings: AppSettings
+    ) throws -> DisplaySetupGroupDeletionResult {
+        guard let deletedGroup = profilesDocument.displaySetupGroups.first(where: { $0.id == groupID }) else {
+            throw ProfileManagerError.displaySetupGroupNotFound
+        }
+
+        let deletedProfiles = profilesDocument.profiles.filter {
+            $0.displaySetupFingerprint == deletedGroup.fingerprint
+        }
+        let deletedProfileIDs = Set(deletedProfiles.map(\.id))
+        let remainingProfiles = profilesDocument.profiles.filter { !deletedProfileIDs.contains($0.id) }
+        let remainingGroups = profilesDocument.displaySetupGroups.filter { $0.id != groupID }
+        let remainingRules = profilesDocument.automaticDefaultRules.filter { rule in
+            !deletedProfileIDs.contains(rule.profileId)
+                && rule.displaySetupFingerprint != deletedGroup.fingerprint
+        }
+        var updatedSettings = settings
+        updatedSettings.shortcutBindings.removeAll { deletedProfileIDs.contains($0.profileId) }
+
+        let updatedDocument = ProfileStoreDocument(
+            schemaVersion: profilesDocument.schemaVersion,
+            profiles: remainingProfiles,
+            automaticDefaultRules: remainingRules,
+            displaySetupGroups: remainingGroups
+        )
+        let deletedProfileList = deletedProfiles
+            .map { "\($0.name) \($0.id.uuidString)" }
+            .joined(separator: "\n")
+
+        return DisplaySetupGroupDeletionResult(
+            profilesDocument: updatedDocument,
+            settings: updatedSettings,
+            logEntry: ActivityLogEntry(
+                type: .displaySetupGroupDeleted,
+                trigger: .manual,
+                metadata: [
+                    "displaySetupGroupID": deletedGroup.id.uuidString,
+                    "displaySetupGroupName": deletedGroup.name,
+                    "displaySetupFingerprint": deletedGroup.fingerprint.rawValue,
+                    "deletedProfileCount": String(deletedProfiles.count),
+                    "deletedProfiles": deletedProfileList
+                ]
             ),
             nextSelectedProfileID: remainingProfiles.first?.id
         )

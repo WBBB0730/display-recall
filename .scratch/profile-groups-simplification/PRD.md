@@ -79,7 +79,8 @@ Profile 主界面不再展示右侧详情编辑器，不再常驻展示 fingerpr
 - A display setup group represents one `DisplaySetupFingerprint` and provides a user-editable name.
 - Display setup group v1 fields are limited to `id`, `fingerprint`, `name`, `createdAt`, and `updatedAt`.
 - Display setup groups do not have icons, colors, notes, custom ordering, a details page, manual merge, or manual split in this PRD.
-- Every visible display setup group exposes Delete Display Setup Group.
+- Every stored visible display setup group exposes Delete Display Setup Group.
+- Ephemeral current display setup groups that exist only because the current fingerprint has no stored group do not expose Delete Display Setup Group.
 - Delete Display Setup Group appears beside Rename Display Setup in the group header hover/focus action area.
 - The group header action order is Rename, then Delete.
 - The Delete Display Setup Group icon uses the same neutral hover treatment as other icon actions; destructive scope is communicated by confirmation copy.

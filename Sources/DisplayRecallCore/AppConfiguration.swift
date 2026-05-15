@@ -74,7 +74,7 @@ public enum MainWindowSection: String, CaseIterable, Equatable, Identifiable, Se
         case .profiles:
             "Profiles"
         case .activityLog:
-            "Activity Log"
+            "Log"
         case .settings:
             "Settings"
         case .about:

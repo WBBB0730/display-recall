@@ -247,6 +247,83 @@ final class ProfileManagementTests: XCTestCase {
         XCTAssertEqual(deletion.nextSelectedProfileID, other.id)
     }
 
+    func testDeleteDisplaySetupGroupDeletesProfilesRulesShortcutsAndCreatesOneGroupLogEntry() throws {
+        let groupFingerprint = DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1")
+        let otherFingerprint = DisplaySetupFingerprint(rawValue: "BBB|builtIn:true|count:1")
+        let first = DisplayProfile.fixture(
+            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+            name: "Desk",
+            fingerprint: groupFingerprint
+        )
+        let second = DisplayProfile.fixture(
+            id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
+            name: "Movie",
+            fingerprint: groupFingerprint
+        )
+        let other = DisplayProfile.fixture(
+            id: UUID(uuidString: "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC")!,
+            name: "Travel",
+            fingerprint: otherFingerprint
+        )
+        let group = DisplaySetupGroup(
+            id: UUID(uuidString: "DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD")!,
+            fingerprint: groupFingerprint,
+            name: "Office"
+        )
+        let otherGroup = DisplaySetupGroup(
+            id: UUID(uuidString: "EEEEEEEE-EEEE-EEEE-EEEE-EEEEEEEEEEEE")!,
+            fingerprint: otherFingerprint,
+            name: "Travel"
+        )
+
+        let deletion = try DisplaySetupGroupDeletion.delete(
+            groupID: group.id,
+            profilesDocument: ProfileStoreDocument(
+                profiles: [first, second, other],
+                automaticDefaultRules: [
+                    AutomaticDefaultRule(displaySetupFingerprint: groupFingerprint, profileId: second.id),
+                    AutomaticDefaultRule(displaySetupFingerprint: otherFingerprint, profileId: other.id)
+                ],
+                displaySetupGroups: [group, otherGroup]
+            ),
+            settings: AppSettings(shortcutBindings: [
+                ShortcutBinding(profileId: first.id, keyEquivalent: "⌘⇧1"),
+                ShortcutBinding(profileId: other.id, keyEquivalent: "⌘⇧2")
+            ])
+        )
+
+        XCTAssertEqual(deletion.profilesDocument.profiles, [other])
+        XCTAssertEqual(deletion.profilesDocument.displaySetupGroups, [otherGroup])
+        XCTAssertEqual(deletion.profilesDocument.automaticDefaultRules.map(\.profileId), [other.id])
+        XCTAssertEqual(deletion.settings.shortcutBindings.map(\.profileId), [other.id])
+        XCTAssertEqual(deletion.logEntry.type, .displaySetupGroupDeleted)
+        XCTAssertNil(deletion.logEntry.profileSnapshot)
+        XCTAssertEqual(deletion.logEntry.metadata["displaySetupGroupName"], "Office")
+        XCTAssertEqual(deletion.logEntry.metadata["deletedProfileCount"], "2")
+        XCTAssertEqual(deletion.logEntry.metadata["deletedProfiles"], "\(first.name) \(first.id.uuidString)\n\(second.name) \(second.id.uuidString)")
+        XCTAssertEqual(deletion.nextSelectedProfileID, other.id)
+    }
+
+    func testDeleteEmptyDisplaySetupGroupOnlyRemovesGroup() throws {
+        let group = DisplaySetupGroup(
+            id: UUID(uuidString: "DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD")!,
+            fingerprint: DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1"),
+            name: "Office"
+        )
+
+        let deletion = try DisplaySetupGroupDeletion.delete(
+            groupID: group.id,
+            profilesDocument: ProfileStoreDocument(displaySetupGroups: [group]),
+            settings: AppSettings()
+        )
+
+        XCTAssertTrue(deletion.profilesDocument.profiles.isEmpty)
+        XCTAssertTrue(deletion.profilesDocument.displaySetupGroups.isEmpty)
+        XCTAssertEqual(deletion.logEntry.type, .displaySetupGroupDeleted)
+        XCTAssertEqual(deletion.logEntry.metadata["deletedProfileCount"], "0")
+        XCTAssertNil(deletion.nextSelectedProfileID)
+    }
+
     private static let displayListOutput = """
     Persistent screen id: AAA
     Type: 27 inch external screen

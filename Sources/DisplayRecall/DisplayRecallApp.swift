@@ -296,7 +296,7 @@ private struct MenuSaveProfilePanelView: View {
                 .textFieldStyle(.roundedBorder)
                 .focused($nameFocused)
 
-            Toggle(localization.text(.setDefault), isOn: $makeAutomaticDefault)
+            Toggle(localization.text(.automaticApply), isOn: $makeAutomaticDefault)
 
             HStack {
                 Spacer()
@@ -1686,7 +1686,7 @@ private struct CreateProfileSheet: View {
             TextField(localization.text(.profileName), text: $name)
                 .textFieldStyle(.roundedBorder)
 
-            Toggle(localization.text(.automaticDefaultForSetup), isOn: $makeAutomaticDefault)
+            Toggle(localization.text(.automaticApply), isOn: $makeAutomaticDefault)
 
             HStack {
                 Spacer()
@@ -2177,8 +2177,17 @@ struct ProfilesContentView: View {
                                                 target: .displaySetupGroup(section.group.id)
                                             )
                                         }
+
+                                        if isStoredGroup(section.group) {
+                                            IconActionButton(
+                                                systemImage: "trash",
+                                                title: localization.status("Delete Display Setup Group", chinese: "删除显示器组合")
+                                            ) {
+                                                deleteDisplaySetupGroup(section.group)
+                                            }
+                                        }
                                     }
-                                    .frame(width: 28, height: 28)
+                                    .frame(width: 56, height: 28)
                                     .opacity(hoveredGroupID == section.group.id ? 1 : 0)
                                     .allowsHitTesting(hoveredGroupID == section.group.id)
                                     .onHover { isHovered in
@@ -2383,6 +2392,10 @@ struct ProfilesContentView: View {
         expandedGroupIDs.contains(group.id)
     }
 
+    private func isStoredGroup(_ group: DisplaySetupGroup) -> Bool {
+        document.displaySetupGroups.contains { $0.id == group.id }
+    }
+
     private func displayName(for group: DisplaySetupGroup) -> String {
         DisplaySetupGroupNameGenerator.localizedDefaultNameIfNeeded(group.name, language: localization.preference)
     }
@@ -2531,7 +2544,7 @@ struct ProfilesContentView: View {
             createProfileSheet = CreateProfileSheetState(
                 layout: layout,
                 suggestedName: localization.defaultProfileName(existingNames: document.profiles.map(\.name)),
-                makeAutomaticDefault: true
+                makeAutomaticDefault: false
             )
         } catch {
             statusMessage = error.localizedDescription
@@ -2682,6 +2695,58 @@ struct ProfilesContentView: View {
             try store.save(SettingsStoreDocument(settings: result.settings))
             try ActivityLogRecorder(store: store).record(result.logEntry)
             statusMessage = localization.status("Deleted profile.", chinese: "已删除配置。")
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func deleteDisplaySetupGroup(_ group: DisplaySetupGroup) {
+        let profilesInGroup = document.profiles.filter {
+            $0.displaySetupFingerprint == group.fingerprint
+        }
+        let groupName = displayName(for: group)
+        let alert = NSAlert()
+        if profilesInGroup.isEmpty {
+            alert.messageText = localization.status(
+                "Delete “\(groupName)”?",
+                chinese: "删除“\(groupName)”？"
+            )
+            alert.informativeText = localization.status(
+                "This display setup group will be removed.",
+                chinese: "这个显示器组合会被移除。"
+            )
+        } else {
+            alert.messageText = localization.status(
+                "Delete “\(groupName)” and \(profilesInGroup.count) configurations?",
+                chinese: "删除“\(groupName)”和其中 \(profilesInGroup.count) 个配置？"
+            )
+            alert.informativeText = localization.status(
+                "This cannot be undone. Automatic apply settings and shortcuts for these configurations will also be removed.",
+                chinese: "此操作无法撤销。这些配置的自动应用设置和快捷键也会移除。"
+            )
+        }
+        alert.addButton(withTitle: localization.status("Delete", chinese: "删除"))
+        alert.addButton(withTitle: localization.text(.cancel))
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return
+        }
+
+        do {
+            let store = try DisplayRecallStore.live()
+            let settings = try store.loadSettings().settings
+            let result = try DisplaySetupGroupDeletion.delete(
+                groupID: group.id,
+                profilesDocument: document,
+                settings: settings
+            )
+            document = result.profilesDocument
+            selectedProfileIDs = Set(result.nextSelectedProfileID.map { [$0] } ?? [])
+            expandedGroupIDs.remove(group.id)
+            try store.save(result.profilesDocument)
+            NotificationCenter.default.post(name: .displayRecallProfilesChanged, object: nil)
+            try store.save(SettingsStoreDocument(settings: result.settings))
+            try ActivityLogRecorder(store: store).record(result.logEntry)
+            statusMessage = localization.status("Deleted display setup group.", chinese: "已删除显示器组合。")
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -3296,8 +3361,8 @@ struct SettingsView: View {
                     copyDiagnosticExport()
                 }
                 Text(localization.status(
-                    "Logs stay in Activity Log; Settings only exposes diagnostic actions.",
-                    chinese: "日志保留在活动日志页；设置页只提供诊断操作。"
+                    "Logs stay in Log; Settings only exposes diagnostic actions.",
+                    chinese: "日志保留在日志页；设置页只提供诊断操作。"
                 ))
                 .foregroundStyle(.secondary)
             }

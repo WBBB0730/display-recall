@@ -13,6 +13,7 @@ public enum ActivityLogEventType: String, CaseIterable, Equatable, Sendable, Cod
     case importExport
     case backendVerification
     case profileDeleted
+    case displaySetupGroupDeleted
 }
 
 public enum ActivityTrigger: String, Equatable, Sendable, Codable {
@@ -143,6 +144,18 @@ public enum ActivityLogRenderer {
     }
 
     public static func summary(for entry: ActivityLogEntry, language: LanguagePreference) -> String {
+        if entry.type == .displaySetupGroupDeleted,
+           let groupName = entry.metadata["displaySetupGroupName"],
+           let count = entry.metadata["deletedProfileCount"] {
+            switch language.resolved() {
+            case .simplifiedChinese:
+                return "已删除显示器组合：\(groupName)（\(count) 个配置）"
+            case .english, .system:
+                let noun = count == "1" ? "configuration" : "configurations"
+                return "Display setup group deleted: \(groupName) (\(count) \(noun))"
+            }
+        }
+
         let base = localizedText(for: entry.type, language: language).summary
         guard let profileName = entry.profileSnapshot?.name else {
             return base
@@ -210,6 +223,8 @@ private func localizedText(
             ("后端验证", "displayplacer 后端验证已完成")
         case .profileDeleted:
             ("已删除配置", "配置已删除")
+        case .displaySetupGroupDeleted:
+            ("已删除显示器组合", "显示器组合已删除")
         }
 
     case .system, .english:
@@ -238,6 +253,8 @@ private func localizedText(
             ("Backend Verification", "The displayplacer backend was verified")
         case .profileDeleted:
             ("Profile Deleted", "The profile was deleted")
+        case .displaySetupGroupDeleted:
+            ("Display Setup Group Deleted", "The display setup group was deleted")
         }
     }
 }

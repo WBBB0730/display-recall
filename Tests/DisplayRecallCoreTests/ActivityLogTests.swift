@@ -44,6 +44,25 @@ final class ActivityLogTests: XCTestCase {
         }
     }
 
+    func testDisplaySetupGroupDeletedSummaryIncludesGroupNameAndProfileCount() {
+        let entry = ActivityLogEntry(
+            type: .displaySetupGroupDeleted,
+            metadata: [
+                "displaySetupGroupName": "Office",
+                "deletedProfileCount": "3"
+            ]
+        )
+
+        XCTAssertEqual(
+            ActivityLogRenderer.summary(for: entry, language: .english),
+            "Display setup group deleted: Office (3 configurations)"
+        )
+        XCTAssertEqual(
+            ActivityLogRenderer.summary(for: entry, language: .simplifiedChinese),
+            "已删除显示器组合：Office（3 个配置）"
+        )
+    }
+
     func testActivityLogQueryFiltersEntriesInReverseChronologicalOrder() {
         let oldApply = ActivityLogEntry(
             type: .profileApplied,

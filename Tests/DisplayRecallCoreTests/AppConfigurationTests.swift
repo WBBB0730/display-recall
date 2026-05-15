@@ -29,7 +29,7 @@ final class AppConfigurationTests: XCTestCase {
     func testMainWindowSectionsExposeRequiredDestinationsAndDefault() {
         XCTAssertEqual(
             MainWindowSection.allCases.map(\.title),
-            ["Profiles", "Activity Log", "Settings", "About"]
+            ["Profiles", "Log", "Settings", "About"]
         )
         XCTAssertEqual(MainWindowSection.default, .profiles)
         XCTAssertEqual(AppMenuAction.openDisplayRecall.targetSection, .profiles)
