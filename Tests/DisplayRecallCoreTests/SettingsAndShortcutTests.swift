@@ -27,6 +27,14 @@ final class SettingsAndShortcutTests: XCTestCase {
         XCTAssertEqual(DisplaySetupGroupNameGenerator.defaultName(index: 1, language: .english), "Display Set 1")
         XCTAssertEqual(DisplaySetupGroupNameGenerator.defaultName(index: 1, language: .simplifiedChinese), "显示器组合 1")
         XCTAssertEqual(
+            DisplaySetupGroupNameGenerator.localizedDefaultNameIfNeeded("Display Set 2", language: .simplifiedChinese),
+            "显示器组合 2"
+        )
+        XCTAssertEqual(
+            DisplaySetupGroupNameGenerator.localizedDefaultNameIfNeeded("Office", language: .simplifiedChinese),
+            "Office"
+        )
+        XCTAssertEqual(
             ProfileNameGenerator.firstAvailableDefaultName(existingNames: ["配置 5"], language: .simplifiedChinese),
             "配置 1"
         )

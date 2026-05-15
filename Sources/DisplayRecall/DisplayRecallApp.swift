@@ -259,22 +259,26 @@ struct PendingApplyPanelView: View {
 private struct MenuSaveProfilePanelView: View {
     @EnvironmentObject private var localization: LocalizationController
     let suggestedName: String
+    let initialMakeAutomaticDefault: Bool
     let onCancel: () -> Void
     let onSave: (String, Bool) -> Void
 
     @State private var name: String
-    @State private var makeAutomaticDefault = false
+    @State private var makeAutomaticDefault: Bool
     @FocusState private var nameFocused: Bool
 
     init(
         suggestedName: String,
+        initialMakeAutomaticDefault: Bool = false,
         onCancel: @escaping () -> Void,
         onSave: @escaping (String, Bool) -> Void
     ) {
         self.suggestedName = suggestedName
+        self.initialMakeAutomaticDefault = initialMakeAutomaticDefault
         self.onCancel = onCancel
         self.onSave = onSave
         _name = State(initialValue: suggestedName)
+        _makeAutomaticDefault = State(initialValue: initialMakeAutomaticDefault)
     }
 
     var body: some View {
@@ -307,6 +311,73 @@ private struct MenuSaveProfilePanelView: View {
     }
 }
 
+private struct MoreMenuAction {
+    let title: String
+    let action: () -> Void
+}
+
+private struct MoreMenuButton: NSViewRepresentable {
+    let actions: [MoreMenuAction]
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(actions: actions)
+    }
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton()
+        button.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: nil)
+        button.imagePosition = .imageOnly
+        button.isBordered = false
+        button.bezelStyle = .inline
+        button.setButtonType(.momentaryChange)
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.showMenu(_:))
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: 28),
+            button.heightAnchor.constraint(equalToConstant: 28)
+        ])
+        return button
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        context.coordinator.actions = actions
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var actions: [MoreMenuAction]
+
+        init(actions: [MoreMenuAction]) {
+            self.actions = actions
+        }
+
+        @objc func showMenu(_ sender: NSButton) {
+            let menu = NSMenu()
+            menu.autoenablesItems = false
+            for (index, action) in actions.enumerated() {
+                let item = NSMenuItem(title: action.title, action: #selector(performAction(_:)), keyEquivalent: "")
+                item.target = self
+                item.tag = index
+                item.isEnabled = true
+                item.attributedTitle = NSAttributedString(
+                    string: action.title,
+                    attributes: [.font: NSFont.menuFont(ofSize: 0)]
+                )
+                menu.addItem(item)
+            }
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
+        }
+
+        @objc private func performAction(_ sender: NSMenuItem) {
+            guard actions.indices.contains(sender.tag) else {
+                return
+            }
+            actions[sender.tag].action()
+        }
+    }
+}
+
 @MainActor
 final class MainWindowController {
     static let shared = MainWindowController()
@@ -320,7 +391,7 @@ final class MainWindowController {
 
         if window == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 920, height: 620),
+                contentRect: NSRect(x: 0, y: 0, width: 760, height: 560),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
@@ -637,6 +708,7 @@ final class StatusBarController: NSObject {
         let contentView = NSHostingView(
             rootView: MenuSaveProfilePanelView(
                 suggestedName: suggestedName,
+                initialMakeAutomaticDefault: false,
                 onCancel: {
                     NSApp.stopModal(withCode: .cancel)
                 },
@@ -1847,28 +1919,22 @@ struct ProfilesContentView: View {
                     Label(localization.text(.saveCurrentLayout), systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
 
                 Spacer()
 
-                Menu {
-                    Button {
+                MoreMenuButton(actions: [
+                    MoreMenuAction(title: localization.status("Import Configurations...", chinese: "导入配置…")) {
                         Task {
                             await importBackup()
                         }
-                    } label: {
-                        Text(localization.status("Import Configurations...", chinese: "导入配置…"))
-                    }
-
-                    Button {
+                    },
+                    MoreMenuAction(title: localization.status("Export Configurations...", chinese: "导出配置…")) {
                         export(selection: .all, suggestedName: "Display Recall Profiles")
-                    } label: {
-                        Text(localization.status("Export Configurations...", chinese: "导出配置…"))
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .menuStyle(.borderlessButton)
+                ])
             }
+            .padding(.horizontal, 20)
 
             if groupSections.isEmpty {
                 VStack(spacing: 10) {
@@ -1884,84 +1950,97 @@ struct ProfilesContentView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(groupSections, id: \.group.id) { section in
-                            DisclosureGroup(isExpanded: expandedBinding(for: section.group)) {
-                                VStack(alignment: .leading, spacing: 0) {
-                                    if section.profiles.isEmpty {
-                                        Text(localization.status("No configurations yet.", chinese: "还没有配置"))
-                                            .foregroundStyle(.secondary)
-                                            .padding(.vertical, 8)
-                                    } else {
-                                        ForEach(section.profiles) { profile in
-                                            HStack {
-                                                Text(profile.name)
-                                                    .fontWeight(.medium)
-                                                    .lineLimit(1)
-                                                Spacer()
-                                                Toggle(
-                                                    localization.text(.automaticApplyConfiguration),
-                                                    isOn: automaticApplyBinding(for: profile)
-                                                )
-                                                .toggleStyle(.switch)
-                                                Button(localization.text(.applyConfiguration)) {
-                                                    applyProfileFromRow(profile)
-                                                }
-                                                Menu {
-                                                    Button(localization.status("Rename...", chinese: "重命名…")) {
-                                                        renameSheet = RenameSheetState(
-                                                            title: localization.status("Rename Configuration", chinese: "重命名配置"),
-                                                            initialName: profile.name,
-                                                            target: .profile(profile.id)
-                                                        )
-                                                    }
-                                                    Button {
-                                                        export(selection: .single(profile.id), suggestedName: profile.name)
-                                                    } label: {
-                                                        Text(localization.status("Export Configuration...", chinese: "导出配置…"))
-                                                    }
-                                                    Button(role: .destructive) {
-                                                        deleteProfile(profile)
-                                                    } label: {
-                                                        Text(localization.status("Delete...", chinese: "删除…"))
-                                                    }
-                                                } label: {
-                                                    Image(systemName: "ellipsis.circle")
-                                                }
-                                                .menuStyle(.borderlessButton)
-                                            }
-                                            .padding(.vertical, 8)
-                                        }
-                                    }
-                                }
-                                .padding(.leading, 8)
-                            } label: {
+                            VStack(alignment: .leading, spacing: 0) {
                                 HStack(spacing: 8) {
-                                    Text(section.group.name)
-                                        .font(.headline)
-                                    if section.isCurrent {
-                                        Text(localization.text(.currentDisplaySetup))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
+                                    Button {
+                                        toggleExpanded(section.group)
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 9, weight: .semibold))
+                                                .frame(width: 12, height: 12)
+                                                .rotationEffect(.degrees(isExpanded(section.group) ? 90 : 0))
+                                                .animation(.easeInOut(duration: 0.16), value: isExpanded(section.group))
+                                            Text(displayName(for: section.group))
+                                                .font(.headline)
+                                            if section.isCurrent {
+                                                Text(localization.text(.currentDisplaySetup))
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            Spacer()
+                                        }
+                                        .contentShape(Rectangle())
                                     }
-                                    Spacer()
-                                    Menu {
-                                        Button(localization.status("Rename...", chinese: "重命名…")) {
+                                    .buttonStyle(.plain)
+
+                                    MoreMenuButton(actions: [
+                                        MoreMenuAction(title: localization.status("Rename...", chinese: "重命名…")) {
                                             renameSheet = RenameSheetState(
                                                 title: localization.status("Rename Display Setup", chinese: "重命名显示器组合"),
-                                                initialName: section.group.name,
+                                                initialName: displayName(for: section.group),
                                                 target: .displaySetupGroup(section.group.id)
                                             )
                                         }
-                                    } label: {
-                                        Image(systemName: "ellipsis.circle")
+                                    ])
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+
+                                if isExpanded(section.group) {
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        if section.profiles.isEmpty {
+                                            Text(localization.status("No configurations yet.", chinese: "还没有配置"))
+                                                .foregroundStyle(.secondary)
+                                                .padding(.vertical, 8)
+                                        } else {
+                                            ForEach(Array(section.profiles.enumerated()), id: \.element.id) { index, profile in
+                                                VStack(alignment: .leading, spacing: 8) {
+                                                    HStack(spacing: 8) {
+                                                        Text(profile.name)
+                                                            .fontWeight(.medium)
+                                                            .lineLimit(1)
+                                                        Spacer()
+                                                        profileMoreMenu(profile)
+                                                    }
+
+                                                    HStack(spacing: 12) {
+                                                        Button(localization.text(.applyConfiguration)) {
+                                                        applyProfileFromRow(profile)
+                                                    }
+                                                    .font(.body)
+                                                    .buttonStyle(.borderedProminent)
+                                                    .controlSize(.large)
+
+                                                        Toggle(
+                                                            localization.text(.automaticApplyConfiguration),
+                                                            isOn: automaticApplyBinding(for: profile)
+                                                        )
+                                                        .toggleStyle(.switch)
+
+                                                        Spacer()
+                                                    }
+                                                }
+                                                .padding(.vertical, 12)
+
+                                                if index < section.profiles.count - 1 {
+                                                    Divider()
+                                                }
+                                            }
+                                        }
                                     }
-                                    .menuStyle(.borderlessButton)
+                                    .padding(.horizontal, 12)
+                                    .padding(.bottom, 8)
+                                    .transition(.opacity)
                                 }
                             }
-                            .padding(12)
                             .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .clipped()
+                            .animation(.easeInOut(duration: 0.18), value: isExpanded(section.group))
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
                 }
             }
 
@@ -1969,9 +2048,10 @@ struct ProfilesContentView: View {
                 Text(statusMessage)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 20)
             }
         }
-        .padding(20)
+        .padding(.vertical, 20)
         .task {
             loadProfiles()
             await refreshCurrentFingerprint()
@@ -1992,8 +2072,9 @@ struct ProfilesContentView: View {
             .environmentObject(localization)
         }
         .sheet(item: $createProfileSheet) { sheet in
-            CreateProfileSheet(
-                state: sheet,
+            MenuSaveProfilePanelView(
+                suggestedName: sheet.suggestedName,
+                initialMakeAutomaticDefault: sheet.makeAutomaticDefault,
                 onCancel: {
                     createProfileSheet = nil
                 },
@@ -2032,17 +2113,40 @@ struct ProfilesContentView: View {
         }
     }
 
-    private func expandedBinding(for group: DisplaySetupGroup) -> Binding<Bool> {
-        Binding(
-            get: { expandedGroupIDs.contains(group.id) },
-            set: { isExpanded in
-                if isExpanded {
-                    expandedGroupIDs.insert(group.id)
-                } else {
-                    expandedGroupIDs.remove(group.id)
-                }
+    private func profileMoreMenu(_ profile: DisplayProfile) -> some View {
+        MoreMenuButton(actions: [
+            MoreMenuAction(title: localization.status("Rename...", chinese: "重命名…")) {
+                renameSheet = RenameSheetState(
+                    title: localization.status("Rename Configuration", chinese: "重命名配置"),
+                    initialName: profile.name,
+                    target: .profile(profile.id)
+                )
+            },
+            MoreMenuAction(title: localization.status("Export Configuration...", chinese: "导出配置…")) {
+                export(selection: .single(profile.id), suggestedName: profile.name)
+            },
+            MoreMenuAction(title: localization.status("Delete...", chinese: "删除…")) {
+                deleteProfile(profile)
             }
-        )
+        ])
+    }
+
+    private func isExpanded(_ group: DisplaySetupGroup) -> Bool {
+        expandedGroupIDs.contains(group.id)
+    }
+
+    private func displayName(for group: DisplaySetupGroup) -> String {
+        DisplaySetupGroupNameGenerator.localizedDefaultNameIfNeeded(group.name, language: localization.preference)
+    }
+
+    private func toggleExpanded(_ group: DisplaySetupGroup) {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            if expandedGroupIDs.contains(group.id) {
+                expandedGroupIDs.remove(group.id)
+            } else {
+                expandedGroupIDs.insert(group.id)
+            }
+        }
     }
 
     private func initializeExpandedGroupsIfNeeded() {

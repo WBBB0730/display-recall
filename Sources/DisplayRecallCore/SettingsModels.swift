@@ -409,6 +409,13 @@ public enum DisplaySetupGroupNameGenerator {
         return language.resolved() == .simplifiedChinese ? "显示器组合 \(number)" : "Display Set \(number)"
     }
 
+    public static func localizedDefaultNameIfNeeded(_ name: String, language: LanguagePreference) -> String {
+        guard let index = defaultNameIndex(in: name) else {
+            return name
+        }
+        return defaultName(index: index, language: language)
+    }
+
     public static func firstAvailableDefaultName(
         existingNames: [String],
         language: LanguagePreference
@@ -419,6 +426,16 @@ public enum DisplaySetupGroupNameGenerator {
             index += 1
         }
         return defaultName(index: index, language: language)
+    }
+
+    private static func defaultNameIndex(in name: String) -> Int? {
+        for prefix in ["Display Set ", "显示器组合 "] where name.hasPrefix(prefix) {
+            let suffix = name.dropFirst(prefix.count)
+            if let index = Int(suffix), index > 0 {
+                return index
+            }
+        }
+        return nil
     }
 }
 
