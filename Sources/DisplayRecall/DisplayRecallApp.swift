@@ -343,6 +343,8 @@ final class StatusBarController: NSObject {
         let makeAutomaticDefault: Bool
     }
 
+    private let menuMinimumWidth: CGFloat = 280
+    private let menuTitleMaximumWidth: CGFloat = 220
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private var document = ProfileStoreDocument()
     private var currentFingerprint: DisplaySetupFingerprint?
@@ -429,6 +431,7 @@ final class StatusBarController: NSObject {
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
+        menu.minimumWidth = menuMinimumWidth
 
         let model = MenuBarModel.build(
             document: document,
@@ -482,7 +485,7 @@ final class StatusBarController: NSObject {
     }
 
     private func profileMenuItem(_ item: MenuBarProfileItem) -> NSMenuItem {
-        let menuItem = actionItem(title: truncatedMenuTitle(item.profile.name), action: #selector(applyProfileFromMenu(_:)))
+        let menuItem = actionItem(title: item.profile.name, action: #selector(applyProfileFromMenu(_:)))
         menuItem.representedObject = item.profile.id.uuidString
         menuItem.toolTip = item.profile.name
         return menuItem
@@ -496,11 +499,29 @@ final class StatusBarController: NSObject {
         return menuItem
     }
 
-    private func truncatedMenuTitle(_ title: String, maxLength: Int = 28) -> String {
-        guard title.count > maxLength else {
+    private func truncatedMenuTitle(_ title: String) -> String {
+        let font = NSFont.menuFont(ofSize: 0)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+        guard title.size(withAttributes: attributes).width > menuTitleMaximumWidth else {
             return title
         }
-        return "\(title.prefix(maxLength - 1))…"
+
+        var lowerBound = 0
+        var upperBound = title.count
+        var bestFit = "…"
+
+        while lowerBound <= upperBound {
+            let midpoint = (lowerBound + upperBound) / 2
+            let candidate = "\(title.prefix(midpoint))…"
+            if candidate.size(withAttributes: attributes).width <= menuTitleMaximumWidth {
+                bestFit = candidate
+                lowerBound = midpoint + 1
+            } else {
+                upperBound = midpoint - 1
+            }
+        }
+
+        return bestFit
     }
 
     @objc private func applyProfileFromMenu(_ sender: NSMenuItem) {
