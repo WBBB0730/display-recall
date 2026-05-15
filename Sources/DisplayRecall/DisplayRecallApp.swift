@@ -3503,24 +3503,7 @@ struct SettingsView: View {
                 HStack(alignment: .center, spacing: 8) {
                     Text(localization.text(.automaticApply))
                     Spacer(minLength: 16)
-                    TextField(
-                        "",
-                        value: Binding(
-                            get: { settings.automaticApplyCountdownSeconds },
-                            set: { newValue in
-                                settings.automaticApplyCountdownSeconds = AutomaticApplyCountdownPolicy.normalized(newValue)
-                                saveSettings()
-                            }
-                        ),
-                        format: .number
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: 56)
-                    Text(localization.status("seconds", chinese: "秒"))
-                        .foregroundStyle(.secondary)
                     Stepper(
-                        "",
                         value: Binding(
                             get: { settings.automaticApplyCountdownSeconds },
                             set: { newValue in
@@ -3529,9 +3512,28 @@ struct SettingsView: View {
                             }
                         ),
                         in: AutomaticApplyCountdownPolicy.allowedRange
-                    )
-                    .labelsHidden()
+                    ) {
+                        HStack(spacing: 6) {
+                            TextField(
+                                "",
+                                value: Binding(
+                                    get: { settings.automaticApplyCountdownSeconds },
+                                    set: { newValue in
+                                        settings.automaticApplyCountdownSeconds = AutomaticApplyCountdownPolicy.normalized(newValue)
+                                        saveSettings()
+                                    }
+                                ),
+                                format: .number
+                            )
+                            .textFieldStyle(.roundedBorder)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 56)
+                            Text(localization.status("seconds", chinese: "秒"))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     .controlSize(.small)
+                    .disabled(!settings.automaticApplyEnabled)
                     Toggle("", isOn: Binding(
                         get: { settings.automaticApplyEnabled },
                         set: { settings.automaticApplyEnabled = $0; saveSettings() }
