@@ -17,11 +17,12 @@ private let plateCornerRadius: CGFloat = 186
 private let backgroundTop = NSColor(calibratedRed: 0.18, green: 0.68, blue: 1.0, alpha: 1.0)
 private let backgroundBottom = NSColor(calibratedRed: 0.0, green: 0.36, blue: 0.94, alpha: 1.0)
 private let symbolColor = NSColor.white
+private let symbolFillColor = NSColor(calibratedRed: 0.14, green: 0.62, blue: 0.96, alpha: 1.0)
 
 private func makeSymbolImage(size: CGFloat) throws -> NSImage {
-    let configuration = NSImage.SymbolConfiguration(pointSize: size, weight: .semibold)
-        .applying(.init(paletteColors: [symbolColor]))
-    guard let image = NSImage(systemSymbolName: "rectangle.on.rectangle", accessibilityDescription: "Display Recall")?
+    let configuration = NSImage.SymbolConfiguration(pointSize: size, weight: .regular)
+        .applying(.init(paletteColors: [symbolColor, symbolFillColor]))
+    guard let image = NSImage(systemSymbolName: "display.2", accessibilityDescription: "Display Recall")?
         .withSymbolConfiguration(configuration) else {
         throw CocoaError(.fileReadUnknown)
     }
@@ -52,9 +53,9 @@ private func drawIcon(in context: CGContext) throws {
     NSColor(calibratedWhite: 1.0, alpha: 0.10).setFill()
     NSBezierPath(ovalIn: CGRect(x: 610, y: -20, width: 460, height: 390)).fill()
 
-    let symbol = try makeSymbolImage(size: 460)
+    let symbol = try makeSymbolImage(size: 500)
     let symbolSize = symbol.size
-    let scale = min(520 / symbolSize.width, 470 / symbolSize.height)
+    let scale = min(540 / symbolSize.width, 480 / symbolSize.height)
     let drawSize = CGSize(width: symbolSize.width * scale, height: symbolSize.height * scale)
     let symbolRect = CGRect(
         x: (canvas - drawSize.width) / 2,
