@@ -147,6 +147,10 @@ final class LocalizationController: ObservableObject {
     func defaultProfileName(existingNames: [String]) -> String {
         ProfileNameGenerator.firstAvailableDefaultName(existingNames: existingNames, language: preference)
     }
+
+    func defaultDisplaySetupGroupName(existingNames: [String]) -> String {
+        DisplaySetupGroupNameGenerator.firstAvailableDefaultName(existingNames: existingNames, language: preference)
+    }
 }
 
 @MainActor
@@ -604,7 +608,8 @@ final class StatusBarController: NSObject {
             document = try manager.saveCurrentLayout(
                 layout,
                 name: options.name,
-                makeAutomaticDefault: options.makeAutomaticDefault
+                makeAutomaticDefault: options.makeAutomaticDefault,
+                displaySetupGroupLanguage: LocalizationController.shared.preference
             )
             try DisplayRecallStore.live().save(document)
             currentFingerprint = layout.displaySetupFingerprint
@@ -1026,7 +1031,8 @@ struct MenuBarContentView: View {
             var manager = ProfileManager(document: document)
             document = try manager.saveCurrentLayout(
                 layout,
-                name: localization.defaultProfileName(existingNames: document.profiles.map(\.name))
+                name: localization.defaultProfileName(existingNames: document.profiles.map(\.name)),
+                displaySetupGroupLanguage: localization.preference
             )
             try DisplayRecallStore.live().save(document)
             currentFingerprint = layout.displaySetupFingerprint
@@ -1771,7 +1777,10 @@ struct ProfilesContentView: View {
     private var groupSections: [ProfileGroupSection] {
         ProfileGroupingProjection.sections(
             document: document,
-            currentFingerprint: currentFingerprint
+            currentFingerprint: currentFingerprint,
+            currentGroupName: localization.defaultDisplaySetupGroupName(
+                existingNames: document.displaySetupGroups.map(\.name)
+            )
         )
     }
 
@@ -1988,7 +1997,8 @@ struct ProfilesContentView: View {
             document = try manager.saveCurrentLayout(
                 layout,
                 name: name,
-                makeAutomaticDefault: makeAutomaticDefault
+                makeAutomaticDefault: makeAutomaticDefault,
+                displaySetupGroupLanguage: localization.preference
             )
             selectedProfileIDs = Set(document.profiles.last.map { [$0.id] } ?? [])
             saveDocument()

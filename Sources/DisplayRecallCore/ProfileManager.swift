@@ -18,7 +18,8 @@ public struct ProfileManager: Sendable {
     public mutating func saveCurrentLayout(
         _ layout: CurrentDisplayLayout,
         name: String? = nil,
-        makeAutomaticDefault: Bool = false
+        makeAutomaticDefault: Bool = false,
+        displaySetupGroupLanguage: LanguagePreference = .english
     ) throws -> ProfileStoreDocument {
         let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let profile = DisplayProfile(
@@ -26,6 +27,10 @@ public struct ProfileManager: Sendable {
             command: layout.command,
             displaySetupFingerprint: layout.displaySetupFingerprint,
             displaySummary: layout.displaySummary
+        )
+        ensureDisplaySetupGroup(
+            for: layout.displaySetupFingerprint,
+            language: displaySetupGroupLanguage
         )
         document.profiles.append(profile)
         if makeAutomaticDefault {
@@ -97,6 +102,25 @@ public struct ProfileManager: Sendable {
         run: CommandRunner
     ) async throws -> DisplayplacerBackendRunResult {
         try await run(DisplayCommandParser.displayplacerArguments(from: profile.command))
+    }
+
+    private mutating func ensureDisplaySetupGroup(
+        for fingerprint: DisplaySetupFingerprint,
+        language: LanguagePreference
+    ) {
+        guard !document.displaySetupGroups.contains(where: { $0.fingerprint == fingerprint }) else {
+            return
+        }
+
+        document.displaySetupGroups.append(
+            DisplaySetupGroup(
+                fingerprint: fingerprint,
+                name: DisplaySetupGroupNameGenerator.firstAvailableDefaultName(
+                    existingNames: document.displaySetupGroups.map(\.name),
+                    language: language
+                )
+            )
+        )
     }
 
     private func index(of profileID: UUID) throws -> Array<DisplayProfile>.Index {

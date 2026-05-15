@@ -29,6 +29,36 @@ final class ProfileManagementTests: XCTestCase {
         XCTAssertEqual(updated.automaticDefaultRules.first?.displaySetupFingerprint, layout.displaySetupFingerprint)
     }
 
+    func testSaveCurrentLayoutLazilyCreatesDisplaySetupGroup() throws {
+        var manager = ProfileManager(document: ProfileStoreDocument())
+        let layout = try CurrentDisplayLayoutParser.parse(Self.displayListOutput)
+
+        let updated = try manager.saveCurrentLayout(
+            layout,
+            name: "配置 1",
+            displaySetupGroupLanguage: .simplifiedChinese
+        )
+
+        XCTAssertEqual(updated.profiles.count, 1)
+        XCTAssertEqual(updated.displaySetupGroups.count, 1)
+        XCTAssertEqual(updated.displaySetupGroups[0].fingerprint, layout.displaySetupFingerprint)
+        XCTAssertEqual(updated.displaySetupGroups[0].name, "显示器组合 1")
+    }
+
+    func testSaveCurrentLayoutReusesExistingDisplaySetupGroup() throws {
+        let layout = try CurrentDisplayLayoutParser.parse(Self.displayListOutput)
+        let existingGroup = DisplaySetupGroup(
+            fingerprint: layout.displaySetupFingerprint,
+            name: "Office"
+        )
+        var manager = ProfileManager(document: ProfileStoreDocument(displaySetupGroups: [existingGroup]))
+
+        let updated = try manager.saveCurrentLayout(layout, name: "Desk")
+
+        XCTAssertEqual(updated.profiles.count, 1)
+        XCTAssertEqual(updated.displaySetupGroups, [existingGroup])
+    }
+
     func testRenameNotesAndAdvancedCommandValidation() throws {
         let profile = DisplayProfile.fixture()
         var manager = ProfileManager(document: ProfileStoreDocument(profiles: [profile]))
