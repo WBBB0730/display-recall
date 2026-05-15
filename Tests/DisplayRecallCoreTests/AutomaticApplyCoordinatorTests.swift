@@ -20,6 +20,24 @@ final class AutomaticApplyCoordinatorTests: XCTestCase {
         XCTAssertEqual(state, .pending(profile: profile, remainingSeconds: 5, trigger: .displayChange))
     }
 
+    func testZeroSecondDisplayChangeIsReadyToApplyImmediatelyWhenDefaultMatches() {
+        let profile = DisplayProfile.fixture(name: "Home")
+        var coordinator = AutomaticApplyCoordinator(countdownSeconds: 0)
+
+        let state = coordinator.handleDisplayChange(
+            document: ProfileStoreDocument(
+                profiles: [profile],
+                automaticDefaultRules: [
+                    AutomaticDefaultRule(displaySetupFingerprint: profile.displaySetupFingerprint, profileId: profile.id)
+                ]
+            ),
+            currentFingerprint: profile.displaySetupFingerprint,
+            automationStatus: .enabled
+        )
+
+        XCTAssertEqual(state, .readyToApply(profile: profile, trigger: .displayChange))
+    }
+
     func testDisplayChangeDoesNotScheduleWhenFingerprintDidNotChange() {
         let profile = DisplayProfile.fixture(name: "Home")
         var coordinator = AutomaticApplyCoordinator(countdownSeconds: 5)

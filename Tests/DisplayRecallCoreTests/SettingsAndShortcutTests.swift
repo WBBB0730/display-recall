@@ -13,6 +13,14 @@ final class SettingsAndShortcutTests: XCTestCase {
         XCTAssertEqual(settings.backendSelection.source, .bundled)
     }
 
+    func testAutomaticApplyCountdownPolicyAllowsZeroAndCapsAtThirtySeconds() {
+        XCTAssertEqual(AutomaticApplyCountdownPolicy.defaultSeconds, 5)
+        XCTAssertEqual(AutomaticApplyCountdownPolicy.normalized(-1), 0)
+        XCTAssertEqual(AutomaticApplyCountdownPolicy.normalized(0), 0)
+        XCTAssertEqual(AutomaticApplyCountdownPolicy.normalized(30), 30)
+        XCTAssertEqual(AutomaticApplyCountdownPolicy.normalized(31), 30)
+    }
+
     func testLegacyShowDockIconSettingMigratesToVisibilityPreference() throws {
         let visibleJSON = #"{"showDockIcon":true}"#.data(using: .utf8)!
         let hiddenJSON = #"{"showDockIcon":false}"#.data(using: .utf8)!

@@ -7,6 +7,7 @@ public enum AutomaticApplyTrigger: Equatable, Sendable {
 
 public enum AutomaticApplyState: Equatable, Sendable {
     case idle
+    case readyToApply(profile: DisplayProfile, trigger: AutomaticApplyTrigger)
     case pending(profile: DisplayProfile, remainingSeconds: Int, trigger: AutomaticApplyTrigger)
     case needsChoice(matchingProfiles: [DisplayProfile])
 }
@@ -51,7 +52,7 @@ public struct AutomaticApplyCoordinator: Sendable {
     public let countdownSeconds: Int
 
     public init(countdownSeconds: Int = 5) {
-        self.countdownSeconds = countdownSeconds
+        self.countdownSeconds = AutomaticApplyCountdownPolicy.normalized(countdownSeconds)
     }
 
     @discardableResult
@@ -130,11 +131,15 @@ public struct AutomaticApplyCoordinator: Sendable {
         }
 
         if let defaultProfile = automaticDefaultProfile(in: document, for: currentFingerprint) {
-            state = .pending(
-                profile: defaultProfile,
-                remainingSeconds: countdownSeconds,
-                trigger: trigger
-            )
+            if countdownSeconds == 0 {
+                state = .readyToApply(profile: defaultProfile, trigger: trigger)
+            } else {
+                state = .pending(
+                    profile: defaultProfile,
+                    remainingSeconds: countdownSeconds,
+                    trigger: trigger
+                )
+            }
         } else if matchingProfiles.count > 1 {
             state = .needsChoice(matchingProfiles: matchingProfiles)
         } else {

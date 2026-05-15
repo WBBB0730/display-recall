@@ -1,5 +1,14 @@
 import Foundation
 
+public enum AutomaticApplyCountdownPolicy {
+    public static let defaultSeconds = 5
+    public static let allowedRange = 0...30
+
+    public static func normalized(_ seconds: Int) -> Int {
+        min(max(seconds, allowedRange.lowerBound), allowedRange.upperBound)
+    }
+}
+
 public struct AppSettings: Equatable, Sendable, Codable {
     public var setupCompleted: Bool
     public var dockIconVisibility: DockIconVisibilityPreference
@@ -25,7 +34,7 @@ public struct AppSettings: Equatable, Sendable, Codable {
         dockIconVisibility: DockIconVisibilityPreference = DockIconVisibilityPreference.defaultValue,
         launchAtLogin: Bool = false,
         automaticApplyEnabled: Bool = true,
-        automaticApplyCountdownSeconds: Int = 5,
+        automaticApplyCountdownSeconds: Int = AutomaticApplyCountdownPolicy.defaultSeconds,
         language: LanguagePreference = .system,
         backendSelection: BackendSelection = BackendSelection(),
         shortcutBindings: [ShortcutBinding] = []
@@ -34,7 +43,7 @@ public struct AppSettings: Equatable, Sendable, Codable {
         self.dockIconVisibility = showDockIcon.map { $0 ? .alwaysShow : .automatic } ?? dockIconVisibility
         self.launchAtLogin = launchAtLogin
         self.automaticApplyEnabled = automaticApplyEnabled
-        self.automaticApplyCountdownSeconds = automaticApplyCountdownSeconds
+        self.automaticApplyCountdownSeconds = AutomaticApplyCountdownPolicy.normalized(automaticApplyCountdownSeconds)
         self.language = language
         self.backendSelection = backendSelection
         self.shortcutBindings = shortcutBindings
@@ -67,10 +76,10 @@ public struct AppSettings: Equatable, Sendable, Codable {
         }
         launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
         automaticApplyEnabled = try container.decodeIfPresent(Bool.self, forKey: .automaticApplyEnabled) ?? true
-        automaticApplyCountdownSeconds = try container.decodeIfPresent(
+        automaticApplyCountdownSeconds = AutomaticApplyCountdownPolicy.normalized(try container.decodeIfPresent(
             Int.self,
             forKey: .automaticApplyCountdownSeconds
-        ) ?? 5
+        ) ?? AutomaticApplyCountdownPolicy.defaultSeconds)
         language = try container.decodeIfPresent(LanguagePreference.self, forKey: .language) ?? .system
         backendSelection = try container.decodeIfPresent(
             BackendSelection.self,

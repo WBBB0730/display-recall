@@ -432,8 +432,8 @@ final class StatusBarController: NSObject {
     private let menuTitleMaximumWidth: CGFloat = 150
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private var document = ProfileStoreDocument()
+    private var settings = AppSettings()
     private var currentFingerprint: DisplaySetupFingerprint?
-    private var automationStatus = AutomationStatus.enabled
     private var automaticCoordinator = AutomaticApplyCoordinator(countdownSeconds: 5)
     private var pendingApplyTask: Task<Void, Never>?
     private var displayChangeObserver: NSObjectProtocol?
@@ -445,9 +445,14 @@ final class StatusBarController: NSObject {
         configureStatusItem()
         observeAutomaticApplyTriggers()
         Task {
+            loadSettings()
             await refreshCurrentSetup()
             loadProfiles()
         }
+    }
+
+    private var automationStatus: AutomationStatus {
+        settings.automaticApplyEnabled ? .enabled : .paused
     }
 
     func invalidate() {
@@ -522,6 +527,7 @@ final class StatusBarController: NSObject {
     private func showMenu() async {
         await refreshCurrentSetup()
         loadProfiles()
+        loadSettings()
         let menu = buildMenu()
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
@@ -651,7 +657,8 @@ final class StatusBarController: NSObject {
     }
 
     @objc private func toggleAutomaticApplyFromMenu() {
-        automationStatus = automationStatus == .enabled ? .paused : .enabled
+        settings.automaticApplyEnabled.toggle()
+        saveSettings()
     }
 
     @objc private func checkForUpdatesFromMenu() {
@@ -665,6 +672,31 @@ final class StatusBarController: NSObject {
     private func loadProfiles() {
         do {
             document = try DisplayRecallStore.live().loadProfiles()
+        } catch {
+            recordActivity(ActivityLogEntry(
+                type: .backendVerification,
+                metadata: ["error": error.localizedDescription]
+            ))
+        }
+    }
+
+    private func loadSettings() {
+        do {
+            settings = try DisplayRecallStore.live().loadSettings().settings
+            automaticCoordinator = AutomaticApplyCoordinator(
+                countdownSeconds: settings.automaticApplyCountdownSeconds
+            )
+        } catch {
+            recordActivity(ActivityLogEntry(
+                type: .backendVerification,
+                metadata: ["error": error.localizedDescription]
+            ))
+        }
+    }
+
+    private func saveSettings() {
+        do {
+            try DisplayRecallStore.live().save(SettingsStoreDocument(settings: settings))
         } catch {
             recordActivity(ActivityLogEntry(
                 type: .backendVerification,
@@ -804,6 +836,7 @@ final class StatusBarController: NSObject {
         let previousFingerprint = currentFingerprint
         await refreshCurrentSetup()
         loadProfiles()
+        loadSettings()
         guard let currentFingerprint else {
             pendingApplyTask?.cancel()
             PendingApplyPanelController.shared.close()
@@ -837,6 +870,15 @@ final class StatusBarController: NSObject {
     }
 
     private func presentPendingPanelIfNeeded(_ state: AutomaticApplyState) {
+        if case let .readyToApply(profile, _) = state {
+            pendingApplyTask?.cancel()
+            PendingApplyPanelController.shared.close()
+            Task {
+                await apply(profile)
+            }
+            return
+        }
+
         guard case let .pending(profile, remainingSeconds, trigger) = state else {
             PendingApplyPanelController.shared.close()
             return
@@ -939,6 +981,15 @@ final class StatusBarController: NSObject {
     private func recordAutomaticDecision(state: AutomaticApplyState, trigger: AutomaticApplyTrigger) {
         let activityTrigger: ActivityTrigger = trigger == .startup ? .startup : .automatic
         switch state {
+        case let .readyToApply(profile, _):
+            recordActivity(
+                ActivityLogEntry(
+                    type: .matchingDecision,
+                    trigger: activityTrigger,
+                    profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                    metadata: ["result": "readyToApply"]
+                )
+            )
         case let .pending(profile, remainingSeconds, _):
             recordActivity(
                 ActivityLogEntry(
@@ -1000,8 +1051,8 @@ struct MenuBarContentView: View {
     @Environment(\.openWindow) private var openWindow
     @EnvironmentObject private var localization: LocalizationController
     @State private var document = ProfileStoreDocument()
+    @State private var settings = AppSettings()
     @State private var currentFingerprint: DisplaySetupFingerprint?
-    @State private var automationStatus = AutomationStatus.enabled
     @State private var automaticCoordinator = AutomaticApplyCoordinator(countdownSeconds: 5)
     @State private var pendingApplyTask: Task<Void, Never>?
     @State private var statusMessage = ""
@@ -1012,6 +1063,10 @@ struct MenuBarContentView: View {
             currentFingerprint: currentFingerprint,
             automationStatus: automationStatus
         )
+    }
+
+    private var automationStatus: AutomationStatus {
+        settings.automaticApplyEnabled ? .enabled : .paused
     }
 
     var body: some View {
@@ -1056,7 +1111,10 @@ struct MenuBarContentView: View {
 
             Toggle(localization.text(.automaticApply), isOn: Binding(
                 get: { automationStatus == .enabled },
-                set: { automationStatus = $0 ? .enabled : .paused }
+                set: {
+                    settings.automaticApplyEnabled = $0
+                    saveSettings()
+                }
             ))
 
             Button(localization.text(.checkForUpdates)) {
@@ -1070,6 +1128,7 @@ struct MenuBarContentView: View {
             }
         }
         .task {
+            loadSettings()
             await refreshCurrentSetup()
             loadProfiles()
         }
@@ -1113,6 +1172,25 @@ struct MenuBarContentView: View {
     private func loadProfiles() {
         do {
             document = try DisplayRecallStore.live().loadProfiles()
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func loadSettings() {
+        do {
+            settings = try DisplayRecallStore.live().loadSettings().settings
+            automaticCoordinator = AutomaticApplyCoordinator(
+                countdownSeconds: settings.automaticApplyCountdownSeconds
+            )
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    private func saveSettings() {
+        do {
+            try DisplayRecallStore.live().save(SettingsStoreDocument(settings: settings))
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -1184,6 +1262,7 @@ struct MenuBarContentView: View {
         let previousFingerprint = currentFingerprint
         await refreshCurrentSetup()
         loadProfiles()
+        loadSettings()
         guard let currentFingerprint else {
             pendingApplyTask?.cancel()
             PendingApplyPanelController.shared.close()
@@ -1218,6 +1297,19 @@ struct MenuBarContentView: View {
     }
 
     private func presentPendingPanelIfNeeded(_ state: AutomaticApplyState) {
+        if case let .readyToApply(profile, _) = state {
+            pendingApplyTask?.cancel()
+            PendingApplyPanelController.shared.close()
+            Task {
+                await apply(MenuBarProfileItem(
+                    profile: profile,
+                    currentFingerprint: currentFingerprint,
+                    isAutomaticDefault: true
+                ))
+            }
+            return
+        }
+
         guard case let .pending(profile, remainingSeconds, trigger) = state else {
             PendingApplyPanelController.shared.close()
             return
@@ -1325,6 +1417,15 @@ struct MenuBarContentView: View {
     private func recordAutomaticDecision(state: AutomaticApplyState, trigger: AutomaticApplyTrigger) {
         let activityTrigger: ActivityTrigger = trigger == .startup ? .startup : .automatic
         switch state {
+        case let .readyToApply(profile, _):
+            recordActivity(
+                ActivityLogEntry(
+                    type: .matchingDecision,
+                    trigger: activityTrigger,
+                    profileSnapshot: ProfileSnapshot(id: profile.id, name: profile.name),
+                    metadata: ["result": "readyToApply"]
+                )
+            )
         case let .pending(profile, remainingSeconds, _):
             recordActivity(
                 ActivityLogEntry(
@@ -3344,18 +3445,15 @@ struct AboutPageView: View {
 }
 
 struct SettingsView: View {
-    @Environment(\.openURL) private var openURL
     @EnvironmentObject private var localization: LocalizationController
     @AppStorage(DockIconVisibilityPreference.userDefaultsKey)
     private var dockIconVisibilityRaw = DockIconVisibilityPreference.defaultValue.rawValue
     @State private var settings = AppSettings()
-    @State private var activityLog = ActivityLogStoreDocument()
     @State private var statusMessage = ""
-    @State private var showsAdvancedBackend = false
 
     var body: some View {
         Form {
-            Section(localization.text(.general)) {
+            Section {
                 Toggle(localization.text(.launchAtLogin), isOn: Binding(
                     get: { settings.launchAtLogin },
                     set: { newValue in
@@ -3395,84 +3493,30 @@ struct SettingsView: View {
                         Text(language.title).tag(language)
                     }
                 }
-            }
 
-            Section(localization.text(.automation)) {
-                Toggle(localization.text(.automaticApply), isOn: Binding(
-                    get: { settings.automaticApplyEnabled },
-                    set: { settings.automaticApplyEnabled = $0; saveSettings() }
-                ))
-
-                Stepper(
-                    localization.countdownLabel(seconds: settings.automaticApplyCountdownSeconds),
-                    value: Binding(
-                        get: { settings.automaticApplyCountdownSeconds },
-                        set: { settings.automaticApplyCountdownSeconds = $0; saveSettings() }
-                    ),
-                    in: 1...30
-                )
-            }
-
-            Section(localization.text(.backend)) {
-                LabeledContent(localization.text(.source), value: "Bundled")
-                LabeledContent("displayplacer", value: DisplayplacerBackend.bundledMetadata.version)
-                LabeledContent(localization.text(.architecture), value: DisplayplacerBackendArchitecture.current.rawValue)
-
-                DisclosureGroup(
-                    localization.text(.advancedBackend),
-                    isExpanded: $showsAdvancedBackend
-                ) {
-                    Text(localization.status(
-                        "Use only when testing another displayplacer build.",
-                        chinese: "仅在测试其他 displayplacer 构建时使用。"
+                HStack {
+                    Toggle(localization.text(.automaticApply), isOn: Binding(
+                        get: { settings.automaticApplyEnabled },
+                        set: { settings.automaticApplyEnabled = $0; saveSettings() }
                     ))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                    TextField(localization.text(.customBackendPath), text: Binding(
-                        get: { settings.backendSelection.customPath ?? "" },
-                        set: { newValue in
-                            settings.backendSelection = BackendSelection(
-                                source: newValue.isEmpty ? .bundled : .custom(path: newValue),
-                                customPath: newValue.isEmpty ? nil : newValue
-                            )
-                            saveSettings()
-                        }
-                    ))
+                    Spacer()
+                    TextField(
+                        "",
+                        value: Binding(
+                            get: { settings.automaticApplyCountdownSeconds },
+                            set: { newValue in
+                                settings.automaticApplyCountdownSeconds = AutomaticApplyCountdownPolicy.normalized(newValue)
+                                saveSettings()
+                            }
+                        ),
+                        format: .number
+                    )
                     .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+                    Text(localization.status("seconds", chinese: "秒"))
+                        .foregroundStyle(.secondary)
                 }
-            }
-
-            Section(localization.text(.shortcuts)) {
-                Text(localization.text(.shortcutsDescription))
-                    .foregroundStyle(.secondary)
-                Text(localization.configuredShortcuts(
-                    settings.shortcutBindings.filter { $0.keyEquivalent?.isEmpty == false }.count
-                ))
-                .foregroundStyle(.secondary)
-            }
-
-            Section(localization.text(.updates)) {
-                LabeledContent(localization.text(.version), value: AboutMetadata.current().displayString)
-                Button(localization.text(.checkForUpdates)) {
-                    openURL(ReleaseConfiguration.production().sparklePolicy.feedURL)
-                }
-                Text(localization.text(.updateChecksDescription))
-                    .foregroundStyle(.secondary)
-            }
-
-            Section(localization.text(.diagnostics)) {
-                Button(localization.text(.openActivityLog)) {
-                    MainWindowRouter.shared.select(.activityLog)
-                }
-                Button(localization.text(.copyDiagnosticExport)) {
-                    copyDiagnosticExport()
-                }
-                Text(localization.status(
-                    "Logs stay in Log; Settings only exposes diagnostic actions.",
-                    chinese: "日志保留在日志页；设置页只提供诊断操作。"
-                ))
-                .foregroundStyle(.secondary)
             }
 
             if !statusMessage.isEmpty {
@@ -3487,7 +3531,6 @@ struct SettingsView: View {
         .frame(maxWidth: 620)
         .task {
             loadSettings()
-            loadActivityLog()
         }
     }
 
@@ -3496,14 +3539,6 @@ struct SettingsView: View {
             settings = try DisplayRecallStore.live().loadSettings().settings
             localization.preference = settings.language
             dockIconVisibilityRaw = settings.dockIconVisibility.rawValue
-        } catch {
-            statusMessage = error.localizedDescription
-        }
-    }
-
-    private func loadActivityLog() {
-        do {
-            activityLog = try DisplayRecallStore.live().loadActivityLog()
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -3538,29 +3573,5 @@ struct SettingsView: View {
         } catch {
             statusMessage = error.localizedDescription
         }
-    }
-
-    private func copyDiagnosticExport() {
-        let backend = BackendSnapshot(
-            path: DisplayplacerBackend.bundledExecutableURL()?.path ?? "Backends",
-            version: DisplayplacerBackend.bundledMetadata.version,
-            source: DisplayplacerBackend.bundledMetadata.source
-        )
-        let recentErrors = activityLog.entries
-            .suffix(20)
-            .map(\.stderr)
-            .filter { !$0.isEmpty }
-        let export = DiagnosticExporter.export(
-            logs: activityLog.entries,
-            backend: backend,
-            recentErrors: recentErrors
-        )
-        copy("\(export.summary)\n\n\(export.json)")
-    }
-
-    private func copy(_ text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        statusMessage = localization.status("Copied.", chinese: "已复制。")
     }
 }
