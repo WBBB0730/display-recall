@@ -252,6 +252,60 @@ struct PendingApplyPanelView: View {
     }
 }
 
+private struct MenuSaveProfilePanelView: View {
+    @EnvironmentObject private var localization: LocalizationController
+    let suggestedName: String
+    let onCancel: () -> Void
+    let onSave: (String, Bool) -> Void
+
+    @State private var name: String
+    @State private var makeAutomaticDefault = false
+    @FocusState private var nameFocused: Bool
+
+    init(
+        suggestedName: String,
+        onCancel: @escaping () -> Void,
+        onSave: @escaping (String, Bool) -> Void
+    ) {
+        self.suggestedName = suggestedName
+        self.onCancel = onCancel
+        self.onSave = onSave
+        _name = State(initialValue: suggestedName)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(localization.text(.createProfile))
+                .font(.headline)
+
+            TextField(localization.text(.profileName), text: $name)
+                .textFieldStyle(.roundedBorder)
+                .focused($nameFocused)
+
+            Toggle(localization.text(.setDefault), isOn: $makeAutomaticDefault)
+
+            HStack {
+                Spacer()
+                Button(localization.text(.cancel), action: onCancel)
+                Button(localization.text(.saveCurrentLayout)) {
+                    onSave(trimmedName, makeAutomaticDefault)
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(trimmedName.isEmpty)
+            }
+        }
+        .padding(16)
+        .frame(width: 320)
+        .onAppear {
+            nameFocused = true
+        }
+    }
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 @MainActor
 final class MainWindowController {
     static let shared = MainWindowController()
@@ -287,6 +341,11 @@ final class MainWindowController {
 
 @MainActor
 final class StatusBarController: NSObject {
+    private struct MenuSaveProfileOptions {
+        let name: String
+        let makeAutomaticDefault: Bool
+    }
+
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private var document = ProfileStoreDocument()
     private var currentFingerprint: DisplaySetupFingerprint?
@@ -518,17 +577,15 @@ final class StatusBarController: NSObject {
             let suggestedName = LocalizationController.shared.defaultProfileName(
                 existingNames: document.profiles.map(\.name)
             )
-            guard let profileName = requestProfileName(
-                suggestedName: suggestedName,
-                displaySummary: layout.displaySummary
-            ) else {
+            guard let options = requestProfileSaveOptions(suggestedName: suggestedName) else {
                 return
             }
 
             var manager = ProfileManager(document: document)
             document = try manager.saveCurrentLayout(
                 layout,
-                name: profileName
+                name: options.name,
+                makeAutomaticDefault: options.makeAutomaticDefault
             )
             try DisplayRecallStore.live().save(document)
             currentFingerprint = layout.displaySetupFingerprint
@@ -540,27 +597,43 @@ final class StatusBarController: NSObject {
         }
     }
 
-    private func requestProfileName(suggestedName: String, displaySummary: String) -> String? {
+    private func requestProfileSaveOptions(suggestedName: String) -> MenuSaveProfileOptions? {
         let localization = LocalizationController.shared
-        let alert = NSAlert()
-        alert.messageText = localization.text(.createProfile)
-        alert.informativeText = displaySummary
-        alert.addButton(withTitle: localization.text(.saveCurrentLayout))
-        alert.addButton(withTitle: localization.text(.cancel))
+        var result: MenuSaveProfileOptions?
+        var panel: NSPanel!
 
-        let textField = NSTextField(string: suggestedName)
-        textField.frame = NSRect(x: 0, y: 0, width: 320, height: 24)
-        alert.accessoryView = textField
+        panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 168),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        panel.title = localization.text(.saveCurrentLayout)
+        panel.isReleasedWhenClosed = false
+        panel.center()
+        panel.contentView = NSHostingView(
+            rootView: MenuSaveProfilePanelView(
+                suggestedName: suggestedName,
+                onCancel: {
+                    NSApp.stopModal(withCode: .cancel)
+                },
+                onSave: { name, makeAutomaticDefault in
+                    result = MenuSaveProfileOptions(
+                        name: name,
+                        makeAutomaticDefault: makeAutomaticDefault
+                    )
+                    NSApp.stopModal(withCode: .OK)
+                }
+            )
+            .environmentObject(localization)
+        )
 
         NSApp.activate(ignoringOtherApps: true)
-        textField.selectText(nil)
+        panel.makeKeyAndOrderFront(nil)
 
-        guard alert.runModal() == .alertFirstButtonReturn else {
-            return nil
-        }
-
-        let name = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        return name.isEmpty ? nil : name
+        let response = NSApp.runModal(for: panel)
+        panel.close()
+        return response == .OK ? result : nil
     }
 
     private func apply(_ profile: DisplayProfile) async {
