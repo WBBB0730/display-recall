@@ -1275,28 +1275,34 @@ struct MenuBarContentView: View {
 }
 
 struct MainWindowView: View {
+    private let sidebarWidth: CGFloat = 172
     @AppStorage(SetupPreference.completedUserDefaultsKey) private var setupCompleted = false
     @EnvironmentObject private var localization: LocalizationController
     @ObservedObject private var router = MainWindowRouter.shared
 
     var body: some View {
         if setupCompleted {
-            HStack(spacing: 0) {
-                List(selection: $router.selectedSection) {
-                    ForEach(MainWindowSection.allCases) { section in
-                        Label(localizedTitle(for: section), systemImage: section.systemImage)
-                            .tag(section)
+            GeometryReader { proxy in
+                HStack(spacing: 0) {
+                    List(selection: $router.selectedSection) {
+                        ForEach(MainWindowSection.allCases) { section in
+                            Label(localizedTitle(for: section), systemImage: section.systemImage)
+                                .tag(section)
+                        }
                     }
+                    .listStyle(.sidebar)
+                    .frame(width: sidebarWidth)
+
+                    Divider()
+
+                    selectedContent
+                        .frame(
+                            width: max(0, proxy.size.width - sidebarWidth - 1),
+                            height: proxy.size.height
+                        )
+                        .clipped()
                 }
-                .listStyle(.sidebar)
-                .frame(minWidth: 172, idealWidth: 172, maxWidth: 172)
-                .layoutPriority(1)
-
-                Divider()
-
-                selectedContent
-                    .layoutPriority(0)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(width: proxy.size.width, height: proxy.size.height)
             }
             .frame(minWidth: 640, minHeight: 480)
         } else {
@@ -2887,12 +2893,12 @@ struct ActivityLogPageView: View {
                             .tag(entry.id)
                         }
                     }
-                    .frame(minWidth: 280)
+                    .frame(minWidth: 220, idealWidth: 280, maxWidth: 320)
 
                     Divider()
 
                     activityDetail
-                        .frame(minWidth: 300, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
