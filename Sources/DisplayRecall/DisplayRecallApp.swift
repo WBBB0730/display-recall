@@ -2434,6 +2434,7 @@ struct ProfilesContentView: View {
                                                             isOn: automaticApplyBinding(for: profile)
                                                         )
                                                         .toggleStyle(.switch)
+                                                        .controlSize(.small)
 
                                                         Spacer()
                                                     }
@@ -3531,6 +3532,8 @@ struct SettingsView: View {
                         set: { settings.automaticApplyEnabled = $0; saveSettings() }
                     ))
                     .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.regular)
                 }
                 .frame(minHeight: 28, alignment: .center)
             }
