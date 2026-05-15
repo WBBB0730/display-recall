@@ -245,6 +245,7 @@ struct PendingApplyPanelView: View {
                 Spacer()
                 Button(localization.text(.stop), action: stop)
                 Button(localization.text(.applyNow), action: applyNow)
+                    .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -724,6 +725,7 @@ final class StatusBarController: NSObject {
             var remaining = remainingSeconds
             while remaining > 0 && !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
                 remaining -= 1
                 await MainActor.run {
                     if remaining > 0 {
@@ -1089,6 +1091,7 @@ struct MenuBarContentView: View {
             var remaining = remainingSeconds
             while remaining > 0 && !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
                 remaining -= 1
                 await MainActor.run {
                     if remaining > 0 {
