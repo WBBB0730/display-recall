@@ -53,9 +53,9 @@ private func drawIcon(in context: CGContext) throws {
     NSColor(calibratedWhite: 1.0, alpha: 0.10).setFill()
     NSBezierPath(ovalIn: CGRect(x: 610, y: -20, width: 460, height: 390)).fill()
 
-    let symbol = try makeSymbolImage(size: 500)
+    let symbol = try makeSymbolImage(size: 560)
     let symbolSize = symbol.size
-    let scale = min(540 / symbolSize.width, 480 / symbolSize.height)
+    let scale = min(610 / symbolSize.width, 540 / symbolSize.height)
     let drawSize = CGSize(width: symbolSize.width * scale, height: symbolSize.height * scale)
     let symbolRect = CGRect(
         x: (canvas - drawSize.width) / 2,
