@@ -41,6 +41,10 @@ find "$ROOT_DIR/Sources/DisplayRecall/Resources" -maxdepth 1 -name "*.lproj" -ty
   cp -R "$localization" "$APP_DIR/Contents/Resources/"
 done
 
+if [[ -f "$ROOT_DIR/Sources/DisplayRecall/Resources/AppIcon.icns" ]]; then
+  cp "$ROOT_DIR/Sources/DisplayRecall/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
+fi
+
 cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -59,6 +63,8 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <string>$EXECUTABLE_NAME</string>
   <key>CFBundleIdentifier</key>
   <string>$BUNDLE_ID</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon.icns</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
