@@ -1289,11 +1289,13 @@ struct MainWindowView: View {
                     }
                 }
                 .listStyle(.sidebar)
-                .frame(width: 172)
+                .frame(minWidth: 172, idealWidth: 172, maxWidth: 172)
+                .layoutPriority(1)
 
                 Divider()
 
                 selectedContent
+                    .layoutPriority(0)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(minWidth: 640, minHeight: 480)
