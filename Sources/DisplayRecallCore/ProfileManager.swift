@@ -85,6 +85,34 @@ public struct ProfileManager: Sendable {
         document.automaticDefaultRules.removeAll { $0.displaySetupFingerprint == fingerprint }
     }
 
+    public mutating func setAutomaticApply(profileID: UUID, isEnabled: Bool) throws {
+        let profile = try profile(with: profileID)
+        if isEnabled {
+            clearAutomaticDefault(for: profile.displaySetupFingerprint)
+            document.automaticDefaultRules.append(
+                AutomaticDefaultRule(
+                    displaySetupFingerprint: profile.displaySetupFingerprint,
+                    profileId: profileID
+                )
+            )
+        } else {
+            document.automaticDefaultRules.removeAll { rule in
+                rule.displaySetupFingerprint == profile.displaySetupFingerprint
+                    && rule.profileId == profileID
+            }
+        }
+    }
+
+    public func isAutomaticApplyEnabled(for profileID: UUID) -> Bool {
+        guard let profile = document.profiles.first(where: { $0.id == profileID }) else {
+            return false
+        }
+        return document.automaticDefaultRules.contains { rule in
+            rule.displaySetupFingerprint == profile.displaySetupFingerprint
+                && rule.profileId == profileID
+        }
+    }
+
     public mutating func rebind(
         profileID: UUID,
         to fingerprint: DisplaySetupFingerprint,
@@ -128,6 +156,13 @@ public struct ProfileManager: Sendable {
             throw ProfileManagerError.profileNotFound
         }
         return index
+    }
+
+    private func profile(with profileID: UUID) throws -> DisplayProfile {
+        guard let profile = document.profiles.first(where: { $0.id == profileID }) else {
+            throw ProfileManagerError.profileNotFound
+        }
+        return profile
     }
 }
 

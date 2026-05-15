@@ -43,6 +43,7 @@ public enum AppLocalizationKey: String, CaseIterable, Equatable, Sendable {
     case appearance
     case architecture
     case automaticApply
+    case automaticApplyConfiguration
     case automaticDefault
     case automaticDefaultForSetup
     case automation
@@ -170,6 +171,7 @@ public enum AppLocalization {
             .appearance: "Appearance",
             .architecture: "Architecture",
             .automaticApply: "Automatic Apply",
+            .automaticApplyConfiguration: "Automatic Apply Configuration",
             .automaticDefault: "Automatic default",
             .automaticDefaultForSetup: "Automatic default for this setup",
             .automation: "Automation",
@@ -269,6 +271,7 @@ public enum AppLocalization {
             .appearance: "外观",
             .architecture: "架构",
             .automaticApply: "自动应用",
+            .automaticApplyConfiguration: "自动应用配置",
             .automaticDefault: "自动默认",
             .automaticDefaultForSetup: "此显示器组合的自动默认",
             .automation: "自动化",

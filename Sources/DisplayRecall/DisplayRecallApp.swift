@@ -1826,6 +1826,11 @@ struct ProfilesContentView: View {
                                                     .fontWeight(.medium)
                                                     .lineLimit(1)
                                                 Spacer()
+                                                Toggle(
+                                                    localization.text(.automaticApplyConfiguration),
+                                                    isOn: automaticApplyBinding(for: profile)
+                                                )
+                                                .toggleStyle(.switch)
                                             }
                                             .padding(.vertical, 8)
                                         }
@@ -1922,6 +1927,24 @@ struct ProfilesContentView: View {
         guard !didInitializeExpandedGroups else { return }
         expandedGroupIDs = Set(groupSections.filter(\.isExpandedByDefault).map(\.group.id))
         didInitializeExpandedGroups = true
+    }
+
+    private func automaticApplyBinding(for profile: DisplayProfile) -> Binding<Bool> {
+        Binding(
+            get: {
+                ProfileManager(document: document).isAutomaticApplyEnabled(for: profile.id)
+            },
+            set: { isEnabled in
+                do {
+                    var manager = ProfileManager(document: document)
+                    try manager.setAutomaticApply(profileID: profile.id, isEnabled: isEnabled)
+                    document = manager.document
+                    saveDocument()
+                } catch {
+                    statusMessage = error.localizedDescription
+                }
+            }
+        )
     }
 
     private var selectedProfileBinding: Binding<DisplayProfile>? {

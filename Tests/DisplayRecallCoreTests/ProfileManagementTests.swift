@@ -94,6 +94,40 @@ final class ProfileManagementTests: XCTestCase {
         XCTAssertTrue(manager.document.automaticDefaultRules.isEmpty)
     }
 
+    func testAutomaticApplySwitchAllowsOneProfilePerDisplaySetupGroup() throws {
+        let fingerprint = DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1")
+        let otherFingerprint = DisplaySetupFingerprint(rawValue: "BBB|builtIn:true|count:1")
+        let first = DisplayProfile.fixture(
+            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+            name: "First",
+            fingerprint: fingerprint
+        )
+        let second = DisplayProfile.fixture(
+            id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
+            name: "Second",
+            fingerprint: fingerprint
+        )
+        let other = DisplayProfile.fixture(
+            id: UUID(uuidString: "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC")!,
+            name: "Other",
+            fingerprint: otherFingerprint
+        )
+        var manager = ProfileManager(document: ProfileStoreDocument(profiles: [first, second, other]))
+
+        try manager.setAutomaticApply(profileID: first.id, isEnabled: true)
+        try manager.setAutomaticApply(profileID: second.id, isEnabled: true)
+        try manager.setAutomaticApply(profileID: other.id, isEnabled: true)
+
+        XCTAssertEqual(manager.document.automaticDefaultRules.map(\.profileId), [second.id, other.id])
+        XCTAssertTrue(manager.isAutomaticApplyEnabled(for: second.id))
+        XCTAssertTrue(manager.isAutomaticApplyEnabled(for: other.id))
+        XCTAssertFalse(manager.isAutomaticApplyEnabled(for: first.id))
+
+        try manager.setAutomaticApply(profileID: second.id, isEnabled: false)
+
+        XCTAssertEqual(manager.document.automaticDefaultRules.map(\.profileId), [other.id])
+    }
+
     func testApplyProfileRunsParsedDisplayplacerArgumentsThroughBackendRunner() async throws {
         let profile = DisplayProfile.fixture(
             command: #"displayplacer "id:AAA res:1920x1080 enabled:true origin:(0,0) degree:0" "id:BBB res:1280x720 enabled:true origin:(1920,0) degree:90""#
@@ -178,14 +212,15 @@ private extension DisplayProfile {
         name: String = "Home",
         notes: String = "",
         command: String = #"displayplacer "id:AAA res:1920x1080 enabled:true origin:(0,0) degree:0""#,
-        summary: String = "27 inch external screen"
+        summary: String = "27 inch external screen",
+        fingerprint: DisplaySetupFingerprint = DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1")
     ) -> DisplayProfile {
         DisplayProfile(
             id: id,
             name: name,
             notes: notes,
             command: command,
-            displaySetupFingerprint: DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1"),
+            displaySetupFingerprint: fingerprint,
             displaySummary: summary
         )
     }
