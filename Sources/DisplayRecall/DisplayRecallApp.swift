@@ -3449,6 +3449,93 @@ struct AboutPageView: View {
     }
 }
 
+struct NumberStepperField: NSViewRepresentable {
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let isEnabled: Bool
+
+    func makeNSView(context: Context) -> NumberStepperControl {
+        let control = NumberStepperControl()
+        control.textField.delegate = context.coordinator
+        control.stepper.target = context.coordinator
+        control.stepper.action = #selector(Coordinator.stepperChanged(_:))
+        return control
+    }
+
+    func updateNSView(_ nsView: NumberStepperControl, context: Context) {
+        context.coordinator.parent = self
+        nsView.textField.integerValue = value
+        nsView.textField.isEnabled = isEnabled
+        nsView.stepper.integerValue = value
+        nsView.stepper.minValue = Double(range.lowerBound)
+        nsView.stepper.maxValue = Double(range.upperBound)
+        nsView.stepper.isEnabled = isEnabled
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: NumberStepperField
+
+        init(parent: NumberStepperField) {
+            self.parent = parent
+        }
+
+        @objc func stepperChanged(_ sender: NSStepper) {
+            parent.value = AutomaticApplyCountdownPolicy.normalized(sender.integerValue)
+        }
+
+        func controlTextDidEndEditing(_ notification: Notification) {
+            guard let textField = notification.object as? NSTextField else {
+                return
+            }
+            parent.value = AutomaticApplyCountdownPolicy.normalized(textField.integerValue)
+        }
+    }
+}
+
+final class NumberStepperControl: NSView {
+    let textField = NSTextField()
+    let stepper = NSStepper()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        configure()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configure()
+    }
+
+    private func configure() {
+        textField.alignment = .right
+        textField.bezelStyle = .roundedBezel
+        textField.translatesAutoresizingMaskIntoConstraints = false
+
+        stepper.increment = 1
+        stepper.controlSize = .small
+        stepper.valueWraps = false
+        stepper.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(textField)
+        addSubview(stepper)
+
+        NSLayoutConstraint.activate([
+            textField.leadingAnchor.constraint(equalTo: leadingAnchor),
+            textField.centerYAnchor.constraint(equalTo: centerYAnchor),
+            textField.widthAnchor.constraint(equalToConstant: 56),
+            stepper.leadingAnchor.constraint(equalTo: textField.trailingAnchor, constant: 4),
+            stepper.centerYAnchor.constraint(equalTo: centerYAnchor),
+            stepper.trailingAnchor.constraint(equalTo: trailingAnchor),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 22)
+        ])
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var localization: LocalizationController
     @AppStorage(DockIconVisibilityPreference.userDefaultsKey)
@@ -3503,7 +3590,7 @@ struct SettingsView: View {
                 HStack(alignment: .center, spacing: 8) {
                     Text(localization.text(.automaticApply))
                     Spacer(minLength: 16)
-                    Stepper(
+                    NumberStepperField(
                         value: Binding(
                             get: { settings.automaticApplyCountdownSeconds },
                             set: { newValue in
@@ -3511,29 +3598,12 @@ struct SettingsView: View {
                                 saveSettings()
                             }
                         ),
-                        in: AutomaticApplyCountdownPolicy.allowedRange
-                    ) {
-                        HStack(spacing: 6) {
-                            TextField(
-                                "",
-                                value: Binding(
-                                    get: { settings.automaticApplyCountdownSeconds },
-                                    set: { newValue in
-                                        settings.automaticApplyCountdownSeconds = AutomaticApplyCountdownPolicy.normalized(newValue)
-                                        saveSettings()
-                                    }
-                                ),
-                                format: .number
-                            )
-                            .textFieldStyle(.roundedBorder)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 56)
-                            Text(localization.status("seconds", chinese: "秒"))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .controlSize(.small)
-                    .disabled(!settings.automaticApplyEnabled)
+                        range: AutomaticApplyCountdownPolicy.allowedRange,
+                        isEnabled: settings.automaticApplyEnabled
+                    )
+                    .frame(width: 80, height: 24)
+                    Text(localization.status("seconds", chinese: "秒"))
+                        .foregroundStyle(.secondary)
                     Toggle("", isOn: Binding(
                         get: { settings.automaticApplyEnabled },
                         set: { settings.automaticApplyEnabled = $0; saveSettings() }
