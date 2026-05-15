@@ -19,7 +19,7 @@ Implement the normal menu bar experience for quick one-shot profile application.
 - [x] Other profiles are separated or collapsed away from the quick path.
 - [x] Users can apply a matching profile from the menu bar as a one-shot command.
 - [x] Users can attempt to apply a non-matching profile and route through high-risk handling.
-- [x] Users can save the current layout from the menu bar.
+- [x] Saving the current layout from the menu bar asks for a profile name before creating the profile.
 - [x] Users can open Profiles and Settings from the menu bar.
 - [x] Users can pause automation from the menu bar.
 - [x] Menu bar icon/state can represent normal, paused, pending, error, and setup-required states.

@@ -14,7 +14,7 @@ Build the Profiles window as the primary management surface. It should use a sid
 
 - [x] Profiles appear in a sidebar with enough status to identify matching and automatic default profiles.
 - [x] Selecting a profile shows details in a separate detail pane.
-- [x] Users can save the current layout as a new profile.
+- [x] Users can save the current layout as a new profile after confirming or editing the suggested name.
 - [x] Users can rename profiles and edit notes.
 - [x] Users can view current display summary and profile display summary.
 - [x] Users can apply a profile from the Profiles window.

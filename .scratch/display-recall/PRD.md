@@ -39,8 +39,8 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 17. As a user, I want to show the Dock icon from Settings, so that I can choose a more visible app behavior.
 18. As a user, I want a Profiles window with a sidebar and detail view, so that I can manage profiles without a cluttered list.
 19. As a user, I want Settings to contain global behavior, so that profile management and app configuration stay separate.
-20. As a user, I want profile names to be generated automatically from my display setup, so that saving a profile is quick.
-21. As a user, I want to rename profiles immediately after saving, so that I can give them meaningful names.
+20. As a user, I want profile names to be suggested automatically from my display setup, so that saving a profile is quick.
+21. As a user, I want Save Current Layout to ask for a profile name before creating the profile, so that I do not accumulate unclear auto-generated names.
 22. As a user, I want display summaries to show enough detail to recognize a profile, so that I can tell which displays and layout it represents.
 23. As an advanced user, I want to edit the raw `displayplacer` command, so that I can adjust parameters the app does not expose as controls.
 24. As an advanced user, I want edited commands to be validated before saving, so that obvious broken profile data is caught early.
@@ -101,6 +101,7 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 - Profiles window uses sidebar + detail layout.
 - Profile raw `displayplacer` command is authoritative. Parsed command data is advisory for validation, risk classification, diagnostics, and UI, and must not be required for applying a profile.
 - Profile data includes stable UUID, name, optional notes, raw command, display setup fingerprint, display summary, schema version, backend version, creation/update timestamps, and app version metadata.
+- Save Current Layout presents a naming confirmation before creating a profile. The suggested name is generated from the current language and existing names, but the user can edit it before saving.
 - Automatic default rules use `displaySetFingerprint -> profile UUID`.
 - Display setup fingerprint prioritizes persistent display IDs, built-in display presence, and enabled display count.
 - Serial/contextual IDs, display names, and short IDs are auxiliary data for display, diagnostics, or degraded matching.
