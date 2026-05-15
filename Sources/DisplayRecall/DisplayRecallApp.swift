@@ -2041,7 +2041,7 @@ private struct IconActionButton: View {
 
     private var iconColor: Color {
         guard isHovered else { return .secondary }
-        return role == .destructive ? .red : .primary
+        return .primary
     }
 }
 
