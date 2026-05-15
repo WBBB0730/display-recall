@@ -1924,14 +1924,14 @@ private struct ImportPreviewSheet: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(localization.status(
-                    "Import \(summary.profileCount) configurations.",
-                    chinese: "将导入 \(summary.profileCount) 个配置。"
+                    "Import \(summary.profileCount) configurations",
+                    chinese: "将导入 \(summary.profileCount) 个配置"
                 ))
 
                 if summary.showsConflictStrategy {
                     Text(localization.status(
-                        "\(summary.conflictCount) names already exist.",
-                        chinese: "其中 \(summary.conflictCount) 个名称已存在。"
+                        "\(summary.conflictCount) configurations already exist",
+                        chinese: "其中 \(summary.conflictCount) 个配置已存在"
                     ))
                     .foregroundStyle(.secondary)
                 }
