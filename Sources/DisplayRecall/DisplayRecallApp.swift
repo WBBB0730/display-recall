@@ -174,16 +174,17 @@ final class PendingApplyPanelController {
 
         if panel == nil {
             let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 320, height: 132),
-                styleMask: [.titled, .nonactivatingPanel, .fullSizeContentView],
+                contentRect: NSRect(x: 0, y: 0, width: 312, height: 118),
+                styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
             )
             panel.isFloatingPanel = true
             panel.level = .floating
             panel.hidesOnDeactivate = false
-            panel.titleVisibility = .hidden
-            panel.titlebarAppearsTransparent = true
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hasShadow = true
             panel.isReleasedWhenClosed = false
             self.panel = panel
         }
@@ -248,7 +249,8 @@ struct PendingApplyPanelView: View {
             }
         }
         .padding(12)
-        .frame(width: 320)
+        .frame(width: 312)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
