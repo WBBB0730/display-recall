@@ -173,6 +173,7 @@ final class PendingApplyPanelController {
         applyNow: @escaping () -> Void,
         stop: @escaping () -> Void
     ) {
+        let shouldFocus = panel?.isVisible != true
         let rootView = PendingApplyPanelView(
             profileName: profile.name,
             remainingSeconds: remainingSeconds,
@@ -198,8 +199,10 @@ final class PendingApplyPanelController {
 
         panel?.contentView = NSHostingView(rootView: rootView)
         positionPanel()
-        NSApp.activate(ignoringOtherApps: true)
-        panel?.makeKeyAndOrderFront(nil)
+        if shouldFocus {
+            NSApp.activate(ignoringOtherApps: true)
+            panel?.makeKeyAndOrderFront(nil)
+        }
     }
 
     func close() {
