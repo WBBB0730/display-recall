@@ -1486,19 +1486,9 @@ struct SetupView: View {
     }
 }
 
-private enum ProfileExportScope: String, CaseIterable, Identifiable {
-    case current
-    case selected
-    case all
-
-    var id: Self { self }
-}
-
 private struct ProfileExportSheetState: Identifiable {
     let id = UUID()
-    let initialScope: ProfileExportScope
-    let currentProfileID: UUID?
-    let selectedProfileIDs: Set<UUID>
+    let initialSelectedProfileIDs: Set<UUID>
 }
 
 private struct ProfileImportPreviewSheetState: Identifiable {
@@ -1621,23 +1611,23 @@ private struct CreateProfileSheet: View {
 private struct ExportProfilesSheet: View {
     @EnvironmentObject private var localization: LocalizationController
     let state: ProfileExportSheetState
-    let document: ProfileStoreDocument
+    let sections: [ProfileGroupSection]
     let onCancel: () -> Void
-    let onExport: (ProfileExportScope) -> Void
+    let onExport: (Set<UUID>) -> Void
 
-    @State private var scope: ProfileExportScope
+    @State private var selectedProfileIDs: Set<UUID>
 
     init(
         state: ProfileExportSheetState,
-        document: ProfileStoreDocument,
+        sections: [ProfileGroupSection],
         onCancel: @escaping () -> Void,
-        onExport: @escaping (ProfileExportScope) -> Void
+        onExport: @escaping (Set<UUID>) -> Void
     ) {
         self.state = state
-        self.document = document
+        self.sections = sections
         self.onCancel = onCancel
         self.onExport = onExport
-        _scope = State(initialValue: state.initialScope)
+        _selectedProfileIDs = State(initialValue: state.initialSelectedProfileIDs)
     }
 
     var body: some View {
@@ -1650,12 +1640,34 @@ private struct ExportProfilesSheet: View {
                     .foregroundStyle(.secondary)
             }
 
-            Picker(localization.text(.exportScope), selection: $scope) {
-                ForEach(ProfileExportScope.allCases) { scope in
-                    Text(title(for: scope)).tag(scope)
+            Toggle(localization.text(.allProfiles), isOn: allProfilesBinding)
+                .toggleStyle(.checkbox)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(sections, id: \.group.id) { section in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Toggle(displayName(for: section.group), isOn: groupBinding(for: section))
+                                .toggleStyle(.checkbox)
+                                .fontWeight(.medium)
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(section.profiles) { profile in
+                                    Toggle(profile.name, isOn: profileBinding(for: profile))
+                                        .toggleStyle(.checkbox)
+                                        .padding(.leading, 22)
+                                }
+                            }
+                        }
+
+                        if section.group.id != sections.last?.group.id {
+                            Divider()
+                        }
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .pickerStyle(.radioGroup)
+            .frame(maxHeight: 280)
 
             let preview = selectedPreview
             LabeledContent(localization.text(.profileCount), value: "\(preview?.profileCount ?? 0)")
@@ -1670,52 +1682,74 @@ private struct ExportProfilesSheet: View {
                 Spacer()
                 Button(localization.text(.cancel), action: onCancel)
                 Button(localization.text(.export)) {
-                    onExport(scope)
+                    onExport(selectedProfileIDs)
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(selectedPreview == nil || selectedPreview?.profileCount == 0)
             }
         }
         .padding(24)
-        .frame(width: 420)
+        .frame(width: 460)
     }
 
     private var selectedPreview: ProfileExportPreview? {
-        guard let selection = selection(for: scope) else {
+        guard !selectedProfileIDs.isEmpty else {
             return nil
         }
-        return ProfileExporter.preview(document: document, selection: selection)
+        let document = ProfileStoreDocument(
+            profiles: sections.flatMap(\.profiles),
+            automaticDefaultRules: [],
+            displaySetupGroups: sections.map(\.group)
+        )
+        return ProfileExporter.preview(document: document, selection: .multiple(Array(selectedProfileIDs)))
     }
 
-    private func selection(for scope: ProfileExportScope) -> ProfileExportSelection? {
-        switch scope {
-        case .current:
-            guard let currentProfileID = state.currentProfileID else {
-                return nil
-            }
-            return .single(currentProfileID)
-        case .selected:
-            guard !state.selectedProfileIDs.isEmpty else {
-                return nil
-            }
-            return .multiple(Array(state.selectedProfileIDs))
-        case .all:
-            guard !document.profiles.isEmpty else {
-                return nil
-            }
-            return .all
-        }
+    private var allProfileIDs: Set<UUID> {
+        Set(sections.flatMap(\.profiles).map(\.id))
     }
 
-    private func title(for scope: ProfileExportScope) -> String {
-        switch scope {
-        case .current:
-            localization.text(.currentProfile)
-        case .selected:
-            localization.text(.selectedProfiles)
-        case .all:
-            localization.text(.allProfiles)
-        }
+    private var allProfilesBinding: Binding<Bool> {
+        Binding(
+            get: { selectedProfileIDs == allProfileIDs && !allProfileIDs.isEmpty },
+            set: { isSelected in
+                if isSelected {
+                    selectedProfileIDs = allProfileIDs
+                } else {
+                    selectedProfileIDs.removeAll()
+                }
+            }
+        )
+    }
+
+    private func groupBinding(for section: ProfileGroupSection) -> Binding<Bool> {
+        let profileIDs = Set(section.profiles.map(\.id))
+        return Binding(
+            get: { !profileIDs.isEmpty && profileIDs.isSubset(of: selectedProfileIDs) },
+            set: { isSelected in
+                if isSelected {
+                    selectedProfileIDs.formUnion(profileIDs)
+                } else {
+                    selectedProfileIDs.subtract(profileIDs)
+                }
+            }
+        )
+    }
+
+    private func profileBinding(for profile: DisplayProfile) -> Binding<Bool> {
+        Binding(
+            get: { selectedProfileIDs.contains(profile.id) },
+            set: { isSelected in
+                if isSelected {
+                    selectedProfileIDs.insert(profile.id)
+                } else {
+                    selectedProfileIDs.remove(profile.id)
+                }
+            }
+        )
+    }
+
+    private func displayName(for group: DisplaySetupGroup) -> String {
+        DisplaySetupGroupNameGenerator.localizedDefaultNameIfNeeded(group.name, language: localization.preference)
     }
 }
 
@@ -1855,8 +1889,6 @@ struct ProfilesContentView: View {
     @State private var didInitializeExpandedGroups = false
     @State private var hoveredGroupID: UUID?
     @State private var hoveredProfileID: UUID?
-    @State private var isSelectingProfiles = false
-    @State private var exportSelectionIDs = Set<UUID>()
 
     private var groupSections: [ProfileGroupSection] {
         ProfileGroupingProjection.sections(
@@ -1891,31 +1923,9 @@ struct ProfilesContentView: View {
                 .controlSize(.large)
 
                 Button(localization.text(.export)) {
-                    export(selection: .all, suggestedName: "Display Recall Profiles")
+                    presentExportSheet()
                 }
                 .controlSize(.large)
-
-                if isSelectingProfiles {
-                    Button(localization.text(.exportSelected)) {
-                        export(
-                            selection: .multiple(Array(exportSelectionIDs)),
-                            suggestedName: "Display Recall Selected Profiles"
-                        )
-                    }
-                    .controlSize(.large)
-                    .disabled(exportSelectionIDs.isEmpty)
-
-                    Button(localization.status("Done", chinese: "完成")) {
-                        isSelectingProfiles = false
-                        exportSelectionIDs.removeAll()
-                    }
-                    .controlSize(.large)
-                } else {
-                    Button(localization.status("Select", chinese: "选择")) {
-                        isSelectingProfiles = true
-                    }
-                    .controlSize(.large)
-                }
             }
             .padding(.horizontal, 20)
 
@@ -1990,14 +2000,6 @@ struct ProfilesContentView: View {
                                             ForEach(Array(section.profiles.enumerated()), id: \.element.id) { index, profile in
                                                 VStack(alignment: .leading, spacing: 8) {
                                                 HStack(spacing: 8) {
-                                                    if isSelectingProfiles {
-                                                        Toggle(
-                                                            localization.status("Select \(profile.name)", chinese: "选择 \(profile.name)"),
-                                                            isOn: exportSelectionBinding(for: profile)
-                                                        )
-                                                        .labelsHidden()
-                                                        .toggleStyle(.checkbox)
-                                                    }
                                                     Text(profile.name)
                                                         .fontWeight(.medium)
                                                         .lineLimit(1)
@@ -2067,13 +2069,16 @@ struct ProfilesContentView: View {
         .sheet(item: $exportSheet) { sheet in
             ExportProfilesSheet(
                 state: sheet,
-                document: document,
+                sections: groupSections,
                 onCancel: {
                     exportSheet = nil
                 },
-                onExport: { scope in
+                onExport: { selectedProfileIDs in
                     exportSheet = nil
-                    export(selection: selection(for: scope, state: sheet), suggestedName: suggestedName(for: scope))
+                    export(
+                        selection: exportSelection(for: selectedProfileIDs),
+                        suggestedName: suggestedExportName(for: selectedProfileIDs)
+                    )
                 }
             )
             .environmentObject(localization)
@@ -2188,19 +2193,6 @@ struct ProfilesContentView: View {
                     saveDocument()
                 } catch {
                     statusMessage = error.localizedDescription
-                }
-            }
-        )
-    }
-
-    private func exportSelectionBinding(for profile: DisplayProfile) -> Binding<Bool> {
-        Binding(
-            get: { exportSelectionIDs.contains(profile.id) },
-            set: { isSelected in
-                if isSelected {
-                    exportSelectionIDs.insert(profile.id)
-                } else {
-                    exportSelectionIDs.remove(profile.id)
                 }
             }
         )
@@ -2429,10 +2421,6 @@ struct ProfilesContentView: View {
         }
     }
 
-    private func exportSelectedProfiles() {
-        presentExportSheet(defaultScope: selectedProfileIDs.isEmpty ? .all : .selected)
-    }
-
     private func deleteProfile(_ profile: DisplayProfile) {
         let alert = NSAlert()
         alert.messageText = localization.status(
@@ -2459,7 +2447,6 @@ struct ProfilesContentView: View {
             )
             document = result.profilesDocument
             selectedProfileIDs = Set(result.nextSelectedProfileID.map { [$0] } ?? [])
-            exportSelectionIDs.remove(profile.id)
             try store.save(result.profilesDocument)
             try store.save(SettingsStoreDocument(settings: result.settings))
             try ActivityLogRecorder(store: store).record(result.logEntry)
@@ -2470,17 +2457,12 @@ struct ProfilesContentView: View {
     }
 
     private func exportProfile(_ profile: DisplayProfile) {
-        presentExportSheet(defaultScope: .current, currentProfileID: profile.id)
+        export(selection: .single(profile.id), suggestedName: profile.name)
     }
 
-    private func presentExportSheet(
-        defaultScope: ProfileExportScope,
-        currentProfileID: UUID? = nil
-    ) {
+    private func presentExportSheet() {
         exportSheet = ProfileExportSheetState(
-            initialScope: defaultScope,
-            currentProfileID: currentProfileID ?? selectedProfileIDs.first,
-            selectedProfileIDs: selectedProfileIDs
+            initialSelectedProfileIDs: Set(document.profiles.map(\.id))
         )
     }
 
@@ -2499,35 +2481,24 @@ struct ProfilesContentView: View {
         }
     }
 
-    private func selection(
-        for scope: ProfileExportScope,
-        state: ProfileExportSheetState
-    ) -> ProfileExportSelection? {
-        switch scope {
-        case .current:
-            guard let currentProfileID = state.currentProfileID else {
-                return nil
-            }
-            return .single(currentProfileID)
-        case .selected:
-            guard !state.selectedProfileIDs.isEmpty else {
-                return nil
-            }
-            return .multiple(Array(state.selectedProfileIDs))
-        case .all:
-            return .all
+    private func exportSelection(for selectedProfileIDs: Set<UUID>) -> ProfileExportSelection? {
+        guard !selectedProfileIDs.isEmpty else {
+            return nil
         }
+        return .multiple(Array(selectedProfileIDs))
     }
 
-    private func suggestedName(for scope: ProfileExportScope) -> String {
-        switch scope {
-        case .current:
-            selectedProfileBinding?.wrappedValue.name ?? "Display Recall Profile"
-        case .selected:
-            "Display Recall Selected Profiles"
-        case .all:
-            "Display Recall Profiles"
+    private func suggestedExportName(for selectedProfileIDs: Set<UUID>) -> String {
+        if selectedProfileIDs == Set(document.profiles.map(\.id)) {
+            return "Display Recall Profiles"
         }
+
+        if selectedProfileIDs.count == 1,
+           let profile = document.profiles.first(where: { selectedProfileIDs.contains($0.id) }) {
+            return profile.name
+        }
+
+        return "Display Recall Selected Profiles"
     }
 
     private func importBackup() async {
