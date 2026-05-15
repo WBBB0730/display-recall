@@ -1714,11 +1714,8 @@ private struct ExportProfilesSheet: View {
                 Spacer()
 
                 Text(selectedCountText)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(.quaternary, in: Capsule())
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
