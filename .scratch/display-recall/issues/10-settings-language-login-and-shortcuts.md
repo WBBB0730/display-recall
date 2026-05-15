@@ -2,6 +2,8 @@ Status: ready-for-agent
 
 # Settings Language Login And Shortcuts
 
+Superseded for Settings UI scope by `22-simplify-settings-preferences.md`. Shortcut data structures remain, but shortcut management is no longer part of the Settings page.
+
 ## Parent
 
 `.scratch/display-recall/PRD.md`

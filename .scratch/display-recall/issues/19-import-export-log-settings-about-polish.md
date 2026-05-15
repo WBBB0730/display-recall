@@ -2,6 +2,8 @@ Status: ready-for-agent
 
 # Import Export Log Settings About Polish
 
+Superseded for Settings UI scope by `22-simplify-settings-preferences.md`. Settings is no longer expected to expose Backend, Shortcuts, Updates, or Diagnostics sections.
+
 ## Parent
 
 `.scratch/display-recall/PRD.md`

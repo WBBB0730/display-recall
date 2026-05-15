@@ -20,12 +20,24 @@ _Avoid_: Profile in user-facing copy
 The one configuration in a display setup group that may run automatically after startup or display changes.
 _Avoid_: Default profile, active profile
 
+**Automatic Apply**:
+The global automation preference that turns startup/display-change automation on or off and controls the countdown duration.
+_Avoid_: Default profile selection, active profile detection
+
+**Settings**:
+The small set of app-wide preferences that change Display Recall behavior.
+_Avoid_: Diagnostics, About, Logs, backend status, shortcut management
+
 ## Relationships
 
 - A **Display Setup Group** belongs to exactly one **Display Setup**.
 - A **Display Setup Group** contains zero or more **Configurations**.
 - A **Configuration** belongs to exactly one **Display Setup Group** through its display setup.
 - A **Display Setup Group** can have zero or one **Automatic Apply Configuration**.
+- **Settings** contains only app-wide preferences such as launch at login, Dock icon visibility, language, and automatic apply countdown duration.
+- **Automatic Apply** is a global Settings switch plus countdown duration; **Automatic Apply Configuration** selects which configuration runs for a display setup.
+- An automatic apply countdown of `0` seconds means apply immediately and do not show the pending prevention panel.
+- **Settings** does not contain shortcut management, update checks, backend diagnostics, Activity Log entry points, or About information.
 - Deleting a **Display Setup Group** deletes every **Configuration** in that group.
 - Only stored **Display Setup Groups** appear in the Profile page; the app does not create temporary groups just to represent the current display setup.
 - Deleting the current **Display Setup Group** removes its stored group and configurations; a new group is created only when the user saves the current layout again.
