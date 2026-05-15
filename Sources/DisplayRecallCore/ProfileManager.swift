@@ -219,7 +219,8 @@ public enum ProfileDeletion {
         let updatedDocument = ProfileStoreDocument(
             schemaVersion: profilesDocument.schemaVersion,
             profiles: remainingProfiles,
-            automaticDefaultRules: remainingRules
+            automaticDefaultRules: remainingRules,
+            displaySetupGroups: profilesDocument.displaySetupGroups
         )
 
         return ProfileDeletionResult(

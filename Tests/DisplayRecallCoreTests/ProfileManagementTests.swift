@@ -216,6 +216,11 @@ final class ProfileManagementTests: XCTestCase {
             id: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
             name: "Other"
         )
+        let group = DisplaySetupGroup(
+            id: UUID(uuidString: "44444444-4444-4444-4444-444444444444")!,
+            fingerprint: profile.displaySetupFingerprint,
+            name: "Office"
+        )
         let deletion = try ProfileDeletion.delete(
             profileID: profile.id,
             profilesDocument: ProfileStoreDocument(
@@ -225,7 +230,8 @@ final class ProfileManagementTests: XCTestCase {
                         displaySetupFingerprint: profile.displaySetupFingerprint,
                         profileId: profile.id
                     )
-                ]
+                ],
+                displaySetupGroups: [group]
             ),
             settings: AppSettings(shortcutBindings: [
                 ShortcutBinding(profileId: profile.id, keyEquivalent: "⌘⇧1"),
@@ -235,6 +241,7 @@ final class ProfileManagementTests: XCTestCase {
 
         XCTAssertEqual(deletion.profilesDocument.profiles, [other])
         XCTAssertTrue(deletion.profilesDocument.automaticDefaultRules.isEmpty)
+        XCTAssertEqual(deletion.profilesDocument.displaySetupGroups, [group])
         XCTAssertEqual(deletion.settings.shortcutBindings.map(\.profileId), [other.id])
         XCTAssertEqual(deletion.logEntry.type, .profileDeleted)
         XCTAssertEqual(deletion.nextSelectedProfileID, other.id)

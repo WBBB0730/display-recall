@@ -1894,6 +1894,11 @@ struct ProfilesContentView: View {
                                                             target: .profile(profile.id)
                                                         )
                                                     }
+                                                    Button(role: .destructive) {
+                                                        deleteProfile(profile)
+                                                    } label: {
+                                                        Text(localization.status("Delete...", chinese: "删除…"))
+                                                    }
                                                 } label: {
                                                     Image(systemName: "ellipsis.circle")
                                                 }
@@ -2270,12 +2275,12 @@ struct ProfilesContentView: View {
     private func deleteProfile(_ profile: DisplayProfile) {
         let alert = NSAlert()
         alert.messageText = localization.status(
-            "Delete \(profile.name)?",
-            chinese: "删除 \(profile.name)？"
+            "Delete “\(profile.name)”?",
+            chinese: "删除“\(profile.name)”？"
         )
         alert.informativeText = localization.status(
-            "This deletes the profile and removes related automatic default rules and shortcuts.",
-            chinese: "这会删除配置，并清理相关自动默认规则和快捷键。"
+            "Related automatic apply settings and shortcuts will also be removed.",
+            chinese: "相关自动应用设置和快捷键也会移除。"
         )
         alert.addButton(withTitle: localization.text(.deleteProfile))
         alert.addButton(withTitle: localization.status("Cancel", chinese: "取消"))

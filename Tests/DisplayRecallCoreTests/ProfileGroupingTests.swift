@@ -48,6 +48,28 @@ final class ProfileGroupingTests: XCTestCase {
         XCTAssertEqual(sections.map(\.isCurrent), [true, false])
         XCTAssertEqual(sections.map(\.isExpandedByDefault), [true, false])
     }
+
+    func testProjectionKeepsOnlyCurrentEmptyGroupVisible() {
+        let currentFingerprint = DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1")
+        let otherFingerprint = DisplaySetupFingerprint(rawValue: "BBB|builtIn:true|count:1")
+        let currentEmptyGroup = DisplaySetupGroup.fixture(name: "Office", fingerprint: currentFingerprint)
+        let otherEmptyGroup = DisplaySetupGroup.fixture(name: "Projector", fingerprint: otherFingerprint)
+        let document = ProfileStoreDocument(displaySetupGroups: [currentEmptyGroup, otherEmptyGroup])
+
+        let currentSections = ProfileGroupingProjection.sections(
+            document: document,
+            currentFingerprint: currentFingerprint
+        )
+        let otherSections = ProfileGroupingProjection.sections(
+            document: document,
+            currentFingerprint: otherFingerprint
+        )
+
+        XCTAssertEqual(currentSections.map(\.group.name), ["Office"])
+        XCTAssertEqual(currentSections.map(\.isCurrent), [true])
+        XCTAssertEqual(otherSections.map(\.group.name), ["Projector"])
+        XCTAssertEqual(otherSections.map(\.isCurrent), [true])
+    }
 }
 
 private extension DisplaySetupGroup {
