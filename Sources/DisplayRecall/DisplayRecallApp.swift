@@ -175,16 +175,14 @@ final class PendingApplyPanelController {
         if panel == nil {
             let panel = NSPanel(
                 contentRect: NSRect(x: 0, y: 0, width: 312, height: 118),
-                styleMask: [.borderless, .nonactivatingPanel],
+                styleMask: [.titled, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
             )
             panel.isFloatingPanel = true
             panel.level = .floating
             panel.hidesOnDeactivate = false
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
-            panel.hasShadow = true
+            panel.title = AppConfiguration.displayName
             panel.isReleasedWhenClosed = false
             self.panel = panel
         }
@@ -251,7 +249,6 @@ struct PendingApplyPanelView: View {
         }
         .padding(12)
         .frame(width: 312)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -650,7 +647,7 @@ final class StatusBarController: NSObject {
         )
         panel.contentView = contentView
         panel.setContentSize(contentView.fittingSize)
-        panel.center()
+        centerPanelOnVisibleScreen(panel)
 
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
@@ -658,6 +655,20 @@ final class StatusBarController: NSObject {
         let response = NSApp.runModal(for: panel)
         panel.close()
         return response == .OK ? result : nil
+    }
+
+    private func centerPanelOnVisibleScreen(_ panel: NSPanel) {
+        guard let screenFrame = NSScreen.main?.visibleFrame else {
+            panel.center()
+            return
+        }
+
+        let frame = panel.frame
+        let origin = NSPoint(
+            x: screenFrame.midX - frame.width / 2,
+            y: screenFrame.midY - frame.height / 2
+        )
+        panel.setFrameOrigin(origin)
     }
 
     private func apply(_ profile: DisplayProfile) async {
