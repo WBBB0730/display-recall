@@ -174,7 +174,7 @@ final class PendingApplyPanelController {
 
         if panel == nil {
             let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 340, height: 150),
+                contentRect: NSRect(x: 0, y: 0, width: 320, height: 132),
                 styleMask: [.titled, .nonactivatingPanel, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -204,8 +204,8 @@ final class PendingApplyPanelController {
         }
 
         let origin = NSPoint(
-            x: screenFrame.maxX - panel.frame.width - 18,
-            y: screenFrame.maxY - panel.frame.height - 18
+            x: screenFrame.maxX - panel.frame.width - 10,
+            y: screenFrame.maxY - panel.frame.height - 10
         )
         panel.setFrameOrigin(origin)
     }
@@ -247,8 +247,8 @@ struct PendingApplyPanelView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(16)
-        .frame(width: 340)
+        .padding(12)
+        .frame(width: 320)
     }
 }
 
