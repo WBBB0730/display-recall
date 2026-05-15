@@ -436,6 +436,12 @@ final class StatusBarController: NSObject {
             automationStatus: automationStatus
         )
 
+        menu.addItem(actionItem(
+            title: LocalizationController.shared.text(.openDisplayRecall),
+            action: #selector(openProfilesFromMenu)
+        ))
+        menu.addItem(.separator())
+
         for item in model.matchingProfiles + model.otherProfiles {
             menu.addItem(profileMenuItem(item))
         }
@@ -450,15 +456,6 @@ final class StatusBarController: NSObject {
         ))
 
         menu.addItem(.separator())
-        menu.addItem(actionItem(
-            title: LocalizationController.shared.text(.openDisplayRecall),
-            action: #selector(openProfilesFromMenu)
-        ))
-        menu.addItem(actionItem(
-            title: LocalizationController.shared.text(.settings),
-            action: #selector(openSettingsFromMenu)
-        ))
-
         let automationItem = actionItem(
             title: LocalizationController.shared.text(.automaticApply),
             action: #selector(toggleAutomaticApplyFromMenu)
@@ -472,6 +469,10 @@ final class StatusBarController: NSObject {
         ))
 
         menu.addItem(.separator())
+        menu.addItem(actionItem(
+            title: LocalizationController.shared.text(.settings),
+            action: #selector(openSettingsFromMenu)
+        ))
         menu.addItem(actionItem(
             title: LocalizationController.shared.text(.quitDisplayRecall),
             action: #selector(quitFromMenu)
