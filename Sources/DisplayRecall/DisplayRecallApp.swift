@@ -2053,26 +2053,20 @@ struct ProfilesContentView: View {
                         ForEach(groupSections, id: \.group.id) { section in
                             VStack(alignment: .leading, spacing: 0) {
                                 HStack(spacing: 8) {
-                                    Button {
-                                        toggleExpanded(section.group)
-                                    } label: {
-                                        HStack(spacing: 8) {
-                                            Image(systemName: "chevron.right")
-                                                .font(.system(size: 9, weight: .semibold))
-                                                .frame(width: 12, height: 12)
-                                                .rotationEffect(.degrees(isExpanded(section.group) ? 90 : 0))
-                                            Text(displayName(for: section.group))
-                                                .font(.headline)
-                                            if section.isCurrent {
-                                                Text(localization.text(.currentDisplaySetup))
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                            Spacer()
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 9, weight: .semibold))
+                                            .frame(width: 12, height: 12)
+                                            .rotationEffect(.degrees(isExpanded(section.group) ? 90 : 0))
+                                        Text(displayName(for: section.group))
+                                            .font(.headline)
+                                        if section.isCurrent {
+                                            Text(localization.text(.currentDisplaySetup))
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
                                         }
-                                        .contentShape(Rectangle())
+                                        Spacer()
                                     }
-                                    .buttonStyle(.plain)
 
                                     HStack(spacing: 0) {
                                         IconActionButton(
@@ -2093,6 +2087,10 @@ struct ProfilesContentView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    toggleExpanded(section.group)
+                                }
                                 .onHover { isHovered in
                                     hoveredGroupID = isHovered ? section.group.id : nil
                                 }
