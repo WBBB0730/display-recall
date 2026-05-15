@@ -101,7 +101,7 @@ High-risk operations require confirmation and use a 15-second keep/restore safet
 - Profiles window uses sidebar + detail layout.
 - Profile raw `displayplacer` command is authoritative. Parsed command data is advisory for validation, risk classification, diagnostics, and UI, and must not be required for applying a profile.
 - Profile data includes stable UUID, name, optional notes, raw command, display setup fingerprint, display summary, schema version, backend version, creation/update timestamps, and app version metadata.
-- Save Current Layout presents a naming confirmation before creating a profile. The suggested name is generated from the current language and existing names, but the user can edit it before saving.
+- Save Current Layout presents a compact naming confirmation before creating a profile. The suggested name is generated from the current language and existing names, but the user can edit it before saving. The confirmation keeps nonessential display details out of the primary path and includes an explicit Set Default option for the current display setup.
 - Automatic default rules use `displaySetFingerprint -> profile UUID`.
 - Display setup fingerprint prioritizes persistent display IDs, built-in display presence, and enabled display count.
 - Serial/contextual IDs, display names, and short IDs are auxiliary data for display, diagnostics, or degraded matching.
