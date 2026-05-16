@@ -74,7 +74,7 @@ public struct ReleaseConfiguration: Equatable, Sendable {
             requiresDeveloperIDSigning: true,
             requiresNotarization: true,
             distributionChannel: .githubReleases,
-            artifactExtension: "zip",
+            artifactExtension: "dmg",
             backendManifest: [
                 DisplayplacerBackend.bundledMetadata.appleSiliconAsset,
                 DisplayplacerBackend.bundledMetadata.intelAsset

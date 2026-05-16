@@ -9,7 +9,7 @@ final class ReleasePackagingTests: XCTestCase {
         XCTAssertTrue(configuration.requiresDeveloperIDSigning)
         XCTAssertTrue(configuration.requiresNotarization)
         XCTAssertEqual(configuration.distributionChannel, .githubReleases)
-        XCTAssertEqual(configuration.artifactExtension, "zip")
+        XCTAssertEqual(configuration.artifactExtension, "dmg")
     }
 
     func testReleaseIncludesBundledBackendsForSupportedArchitectures() {

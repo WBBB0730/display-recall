@@ -5,7 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Display Recall"
 APP_DIR="$ROOT_DIR/dist/$APP_NAME.app"
 ARTIFACT_DIR="$ROOT_DIR/dist/release"
-ZIP_PATH="$ARTIFACT_DIR/Display-Recall-0.1.0.zip"
+VERSION="${VERSION:-0.1.0}"
+DMG_PATH="$ARTIFACT_DIR/Display-Recall-$VERSION.dmg"
 
 require_env() {
   local name="$1"
@@ -42,15 +43,34 @@ codesign \
 
 rm -rf "$ARTIFACT_DIR"
 mkdir -p "$ARTIFACT_DIR"
-ditto -c -k --keepParent "$APP_DIR" "$ZIP_PATH"
 
-xcrun notarytool submit "$ZIP_PATH" \
+CREATE_DMG_COMMAND=(create-dmg)
+if ! command -v create-dmg >/dev/null 2>&1; then
+  CREATE_DMG_COMMAND=(npx --yes create-dmg)
+fi
+
+"${CREATE_DMG_COMMAND[@]}" "$APP_DIR" "$ARTIFACT_DIR" \
+  --overwrite \
+  --dmg-title="$APP_NAME" \
+  --no-code-sign
+
+GENERATED_DMG_PATH="$(find "$ARTIFACT_DIR" -maxdepth 1 -name "$APP_NAME*.dmg" -type f | head -n 1)"
+if [[ -z "$GENERATED_DMG_PATH" ]]; then
+  echo "Could not find generated DMG artifact." >&2
+  exit 1
+fi
+
+if [[ "$GENERATED_DMG_PATH" != "$DMG_PATH" ]]; then
+  mv "$GENERATED_DMG_PATH" "$DMG_PATH"
+fi
+
+xcrun notarytool submit "$DMG_PATH" \
   --apple-id "$APPLE_ID" \
   --team-id "$APPLE_TEAM_ID" \
   --password "$APPLE_APP_SPECIFIC_PASSWORD" \
   --wait
 
-xcrun stapler staple "$APP_DIR"
+xcrun stapler staple "$DMG_PATH"
 
 if [[ -n "${SPARKLE_GENERATE_APPCAST:-}" ]]; then
   "$SPARKLE_GENERATE_APPCAST" "$ARTIFACT_DIR"
@@ -58,4 +78,4 @@ else
   echo "Set SPARKLE_GENERATE_APPCAST to generate a Sparkle appcast for the release artifact."
 fi
 
-echo "$ZIP_PATH"
+echo "$DMG_PATH"
