@@ -30,6 +30,26 @@ The unsigned workflow does not require repository secrets.
 
 The tag version is passed to the packaging scripts as the app version, so `v1.2.3` produces a `1.2.3` release artifact.
 
+## Version Bumps
+
+Use `scripts/bump-version.swift` to update the app version before a release. The script is interactive by default, similar to `bumpp`: it reads the current version, shows stable and beta candidates, asks for confirmation, updates version references, and can create a git commit and tag.
+
+Release tags use these formats:
+
+- Stable: `vX.Y.Z`
+- Beta: `vX.Y.Z-beta.N`
+
+Examples:
+
+```sh
+scripts/bump-version.swift
+scripts/bump-version.swift patch --commit --tag
+scripts/bump-version.swift beta --commit --tag
+scripts/bump-version.swift 1.2.3-beta.1 --commit --tag
+```
+
+The script does not push commits or tags automatically. Push the selected release tag when you want GitHub Actions to publish it.
+
 ## Sparkle
 
 Sparkle update metadata uses the stable channel. Updates are user-confirmed and never silently forced. Appcast generation is optional for the unsigned release flow.
