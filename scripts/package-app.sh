@@ -21,7 +21,15 @@ fi
 
 "${BUILD_ARGUMENTS[@]}"
 
-EXECUTABLE_PATH="$(find "$BUILD_ROOT" -path "*/$CONFIGURATION/$EXECUTABLE_NAME" -type f | head -n 1)"
+PRODUCT_CONFIGURATION_DIR="$CONFIGURATION"
+if [[ "$CONFIGURATION" == "release" ]]; then
+  PRODUCT_CONFIGURATION_DIR="Release"
+fi
+
+EXECUTABLE_PATH="$(find "$BUILD_ROOT" -type f \( \
+  -path "*/Products/$PRODUCT_CONFIGURATION_DIR/$EXECUTABLE_NAME" \
+  -o -path "*/$CONFIGURATION/$EXECUTABLE_NAME" \
+\) | head -n 1)"
 if [[ -z "$EXECUTABLE_PATH" ]]; then
   echo "Could not find built executable: $EXECUTABLE_NAME" >&2
   exit 1
@@ -33,7 +41,10 @@ mkdir -p "$APP_DIR/Contents/Resources"
 
 cp "$EXECUTABLE_PATH" "$APP_DIR/Contents/MacOS/$EXECUTABLE_NAME"
 
-find "$BUILD_ROOT" -path "*/$CONFIGURATION/*.bundle" -type d -maxdepth 5 | while read -r bundle; do
+find "$BUILD_ROOT" -type d \( \
+  -path "*/Products/$PRODUCT_CONFIGURATION_DIR/*.bundle" \
+  -o -path "*/$CONFIGURATION/*.bundle" \
+\) | while read -r bundle; do
   cp -R "$bundle" "$APP_DIR/Contents/Resources/"
 done
 

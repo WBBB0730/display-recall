@@ -2,12 +2,12 @@ import XCTest
 @testable import DisplayRecallCore
 
 final class ReleasePackagingTests: XCTestCase {
-    func testReleaseConfigurationRequiresUniversalSignedNotarizedGitHubArtifact() {
+    func testReleaseConfigurationUsesUniversalUnsignedGitHubDMGArtifact() {
         let configuration = ReleaseConfiguration.production()
 
         XCTAssertEqual(configuration.architectures, [.appleSilicon, .intel])
-        XCTAssertTrue(configuration.requiresDeveloperIDSigning)
-        XCTAssertTrue(configuration.requiresNotarization)
+        XCTAssertFalse(configuration.requiresDeveloperIDSigning)
+        XCTAssertFalse(configuration.requiresNotarization)
         XCTAssertEqual(configuration.distributionChannel, .githubReleases)
         XCTAssertEqual(configuration.artifactExtension, "dmg")
     }
@@ -42,7 +42,7 @@ final class ReleasePackagingTests: XCTestCase {
         let checklist = ReleaseReadinessChecklist.production()
 
         XCTAssertFalse(checklist.requiresMacAppStoreReceipt)
-        XCTAssertTrue(checklist.steps.contains(.notarize))
+        XCTAssertFalse(checklist.steps.contains(.signSparkleUpdate))
         XCTAssertTrue(checklist.steps.contains(.generateSparkleAppcast))
         XCTAssertTrue(checklist.steps.contains(.publishGitHubReleaseArtifact))
     }

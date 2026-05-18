@@ -71,8 +71,8 @@ public struct ReleaseConfiguration: Equatable, Sendable {
     public static func production() -> ReleaseConfiguration {
         ReleaseConfiguration(
             architectures: [.appleSilicon, .intel],
-            requiresDeveloperIDSigning: true,
-            requiresNotarization: true,
+            requiresDeveloperIDSigning: false,
+            requiresNotarization: false,
             distributionChannel: .githubReleases,
             artifactExtension: "dmg",
             backendManifest: [
@@ -117,8 +117,6 @@ public struct AboutMetadata: Equatable, Sendable {
 
 public enum ReleaseReadinessStep: Equatable, Sendable {
     case buildUniversal2
-    case signWithDeveloperID
-    case notarize
     case packageGitHubReleaseArtifact
     case signSparkleUpdate
     case generateSparkleAppcast
@@ -139,10 +137,7 @@ public struct ReleaseReadinessChecklist: Equatable, Sendable {
             requiresMacAppStoreReceipt: false,
             steps: [
                 .buildUniversal2,
-                .signWithDeveloperID,
-                .notarize,
                 .packageGitHubReleaseArtifact,
-                .signSparkleUpdate,
                 .generateSparkleAppcast,
                 .publishGitHubReleaseArtifact
             ]
