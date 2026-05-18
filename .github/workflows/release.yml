@@ -23,8 +23,8 @@ jobs:
 
       - name: Validate release tag
         run: |
-          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Release tags must match vX.Y.Z: $GITHUB_REF_NAME" >&2
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]]; then
+            echo "Release tags must match vX.Y.Z or vX.Y.Z-beta.N: $GITHUB_REF_NAME" >&2
             exit 1
           fi
 
@@ -55,7 +55,16 @@ jobs:
             exit 1
           fi
 
-          gh release create "$GITHUB_REF_NAME" "$DMG_PATH" \
-            --title "Display Recall ${GITHUB_REF_NAME#v}" \
-            --generate-notes \
+          RELEASE_ARGS=(
+            "$GITHUB_REF_NAME"
+            "$DMG_PATH"
+            --title "Display Recall ${GITHUB_REF_NAME#v}"
+            --generate-notes
             --verify-tag
+          )
+
+          if [[ "$GITHUB_REF_NAME" == *"-beta."* ]]; then
+            RELEASE_ARGS+=(--prerelease)
+          fi
+
+          gh release create "${RELEASE_ARGS[@]}"
