@@ -64,7 +64,7 @@ final class ProfileImportExportTests: XCTestCase {
         let json = """
         {
           "schemaVersion": 1,
-          "appVersion": "0.1.0",
+          "appVersion": "0.1.1",
           "exportedAt": "2026-05-15T00:00:00Z",
           "profiles": [
             {
@@ -78,8 +78,8 @@ final class ProfileImportExportTests: XCTestCase {
               },
               "displaySummary": "Hidden summary",
               "backendVersion": "1.4.0",
-              "createdByAppVersion": "0.1.0",
-              "updatedByAppVersion": "0.1.0",
+              "createdByAppVersion": "0.1.1",
+              "updatedByAppVersion": "0.1.1",
               "isCommandEdited": true,
               "importedNeedsFirstApplyConfirmation": false,
               "createdAt": "2026-05-15T00:00:00Z",

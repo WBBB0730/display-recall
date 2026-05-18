@@ -36,8 +36,8 @@ final class DisplayRecallStoreTests: XCTestCase {
 
         XCTAssertEqual(profile.schemaVersion, 1)
         XCTAssertEqual(profile.backendVersion, "1.4.0")
-        XCTAssertEqual(profile.createdByAppVersion, "0.1.0")
-        XCTAssertEqual(profile.updatedByAppVersion, "0.1.0")
+        XCTAssertEqual(profile.createdByAppVersion, "0.1.1")
+        XCTAssertEqual(profile.updatedByAppVersion, "0.1.1")
         XCTAssertFalse(profile.displaySummary.isEmpty)
     }
 
@@ -92,8 +92,8 @@ final class DisplayRecallStoreTests: XCTestCase {
               "displaySetupFingerprint": { "rawValue": "AAA|builtIn:false|count:1" },
               "displaySummary": "27 inch external screen",
               "backendVersion": "1.4.0",
-              "createdByAppVersion": "0.1.0",
-              "updatedByAppVersion": "0.1.0",
+              "createdByAppVersion": "0.1.1",
+              "updatedByAppVersion": "0.1.1",
               "isCommandEdited": false,
               "importedNeedsFirstApplyConfirmation": false,
               "createdAt": 10,
@@ -108,8 +108,8 @@ final class DisplayRecallStoreTests: XCTestCase {
               "displaySetupFingerprint": { "rawValue": "AAA|builtIn:false|count:1" },
               "displaySummary": "27 inch external screen",
               "backendVersion": "1.4.0",
-              "createdByAppVersion": "0.1.0",
-              "updatedByAppVersion": "0.1.0",
+              "createdByAppVersion": "0.1.1",
+              "updatedByAppVersion": "0.1.1",
               "isCommandEdited": false,
               "importedNeedsFirstApplyConfirmation": false,
               "createdAt": 30,
@@ -124,8 +124,8 @@ final class DisplayRecallStoreTests: XCTestCase {
               "displaySetupFingerprint": { "rawValue": "BBB|builtIn:true|count:1" },
               "displaySummary": "Built-in display",
               "backendVersion": "1.4.0",
-              "createdByAppVersion": "0.1.0",
-              "updatedByAppVersion": "0.1.0",
+              "createdByAppVersion": "0.1.1",
+              "updatedByAppVersion": "0.1.1",
               "isCommandEdited": false,
               "importedNeedsFirstApplyConfirmation": false,
               "createdAt": 50,
@@ -172,8 +172,8 @@ private extension DisplayProfile {
             displaySetupFingerprint: DisplaySetupFingerprint(rawValue: "AAA|builtIn:false|count:1"),
             displaySummary: "27 inch external screen",
             backendVersion: "1.4.0",
-            createdByAppVersion: "0.1.0",
-            updatedByAppVersion: "0.1.0",
+            createdByAppVersion: "0.1.1",
+            updatedByAppVersion: "0.1.1",
             createdAt: Date(timeIntervalSince1970: 10),
             updatedAt: Date(timeIntervalSince1970: 20)
         )

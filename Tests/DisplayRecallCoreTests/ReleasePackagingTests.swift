@@ -33,9 +33,9 @@ final class ReleasePackagingTests: XCTestCase {
     func testAboutMetadataExposesVersionAndBuildNumber() {
         let about = AboutMetadata.current()
 
-        XCTAssertEqual(about.version, "0.1.0")
+        XCTAssertEqual(about.version, "0.1.1")
         XCTAssertEqual(about.build, "1")
-        XCTAssertEqual(about.displayString, "Display Recall 0.1.0 (1)")
+        XCTAssertEqual(about.displayString, "Display Recall 0.1.1 (1)")
     }
 
     func testReleaseChecklistRejectsMacAppStoreAssumptions() {

@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Display Recall"
 APP_DIR="$ROOT_DIR/dist/$APP_NAME.app"
 ARTIFACT_DIR="$ROOT_DIR/dist/release"
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-0.1.1}"
 DMG_PATH="$ARTIFACT_DIR/Display-Recall-$VERSION.dmg"
 
 "$ROOT_DIR/scripts/package-app.sh" release

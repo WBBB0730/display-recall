@@ -380,7 +380,7 @@ func performGitOperations(target: ReleaseVersion, files: [String], commit: Bool,
         throw BumpError.commandFailed("Tag already exists: \(target.tagName)")
     }
 
-    let message = "chore: 发布 \(target.tagName)"
+    let message = "chore: \(target.tagName)"
 
     if dryRun {
         print("Would commit: \(message)")
